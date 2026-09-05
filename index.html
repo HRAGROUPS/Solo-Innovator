@@ -233,6 +233,11 @@
               <span class="hud-target">target ~90°</span>
             </div>
             <div class="hud-item">
+              <span class="hud-label">Knee/Ankle Stack</span>
+              <span class="hud-val" id="kneeAnkleOffsetDisplay">--%</span>
+              <span class="hud-target" id="kneeAnkleOffsetTarget">target ≤12%</span>
+            </div>
+            <div class="hud-item">
               <span class="hud-label">Shoulder Tilt</span>
               <span class="hud-val" id="shoulderTiltDisplay">--°</span>
               <span class="hud-target">target &lt;8°</span>
@@ -279,25 +284,25 @@
             <div class="result-card">
               <span class="result-label">Initial Score (Before)</span>
               <span class="result-number" id="sumBeforeScore">--</span>
-              <span class="result-hint">Initial alignment capture</span>
+              <span class="result-hint" id="sumBeforeHint">Initial alignment capture</span>
             </div>
 
             <div class="result-card highlight">
-              <span class="result-label">Corrected Score (After)</span>
+              <span class="result-label">Final / Corrected Score</span>
               <span class="result-number" id="sumAfterScore">--</span>
-              <span class="result-hint">Peak corrected posture</span>
+              <span class="result-hint" id="sumAfterHint">Measured hold quality</span>
             </div>
 
-            <div class="result-card delta-card">
-              <span class="result-label">Measured Improvement</span>
-              <span class="result-delta" id="sumDeltaScore">+0</span>
-              <span class="result-hint">Actual measured change</span>
+            <div class="result-card delta-card" id="sumDeltaCard">
+              <span class="result-label" id="sumDeltaLabel">Measured Improvement</span>
+              <span class="result-delta" id="sumDeltaScore">--</span>
+              <span class="result-hint" id="sumDeltaHint">Actual measured change</span>
             </div>
 
             <div class="result-card">
-              <span class="result-label">Key Focus Area</span>
-              <span class="result-focus">Front Knee Alignment</span>
-              <span class="result-hint">Knee stacked over ankle</span>
+              <span class="result-label">Primary Focus Area</span>
+              <span class="result-focus" id="sumFocusArea">Knee Alignment</span>
+              <span class="result-hint" id="sumFocusHint">Camera-plane observation</span>
             </div>
           </div>
 

@@ -1,6 +1,7 @@
 /**
  * Adaptive Yoga Coach — Client-side Pose Analysis & Alignment MVP
- * Vanilla JS, MediaPipe Pose via CDN, Chart.js, LocalStorage
+ * Upgrade 1: Credibility + Computer Vision Intelligence
+ * Vanilla JS, MediaPipe Pose via CDN, Chart.js, LocalStorage, Web Speech API
  */
 
 // --- DOM Elements ---
@@ -86,6 +87,8 @@ const deltaBadge = document.getElementById('deltaBadge');
 const deltaBadgeText = document.getElementById('deltaBadgeText');
 
 const frontKneeAngleDisplay = document.getElementById('frontKneeAngleDisplay');
+const kneeAnkleOffsetDisplay = document.getElementById('kneeAnkleOffsetDisplay');
+const kneeAnkleOffsetTarget = document.getElementById('kneeAnkleOffsetTarget');
 const shoulderTiltDisplay = document.getElementById('shoulderTiltDisplay');
 const stanceDisplay = document.getElementById('stanceDisplay');
 const frontLegLabel = document.getElementById('frontLegLabel');
@@ -95,8 +98,14 @@ const endSessionBtn = document.getElementById('endSessionBtn');
 
 // Summary elements
 const sumBeforeScore = document.getElementById('sumBeforeScore');
+const sumBeforeHint = document.getElementById('sumBeforeHint');
 const sumAfterScore = document.getElementById('sumAfterScore');
+const sumAfterHint = document.getElementById('sumAfterHint');
 const sumDeltaScore = document.getElementById('sumDeltaScore');
+const sumDeltaLabel = document.getElementById('sumDeltaLabel');
+const sumDeltaHint = document.getElementById('sumDeltaHint');
+const sumFocusArea = document.getElementById('sumFocusArea');
+const sumFocusHint = document.getElementById('sumFocusHint');
 const summarySubtitle = document.getElementById('summarySubtitle');
 const viewProgressFromSummaryBtn = document.getElementById('viewProgressFromSummaryBtn');
 const practiceAgainBtn = document.getElementById('practiceAgainBtn');
@@ -114,16 +123,30 @@ let isCameraRunning = false;
 let sessionTimerInterval = null;
 let sessionSecondsElapsed = 0;
 
-// Debounce & Scoring State
-let consecutiveBadFrames = 0;
-let consecutiveGoodFrames = 0;
-const DEBOUNCE_THRESHOLD = 5; // ~150-200ms at 30fps
+// Debounce & Valid Frame Thresholds
+const DEBOUNCE_THRESHOLD = 5; // Require 5 consecutive frames before shifting feedback
+const MIN_VALID_FRAMES = 15;   // Require at least 15 verified frames (~0.5s at 30fps) for a scored session
 
+// Session Measurement State
+let validFrameCount = 0;
 let currentFeedbackState = 'neutral'; // 'neutral' | 'warn' | 'good' | 'out_of_frame'
+let activeFeedbackCategory = null;   // 'knee_ankle' | 'knee_open' | 'knee_closed' | 'shoulder' | 'good'
+let pendingFeedbackCategory = null;
+let pendingFeedbackFrames = 0;
+
 let baselineBeforeScore = null;
 let correctedAfterScore = null;
+let latestMeasuredScore = null;
 let peakScoreThisSession = 0;
-let lastCalculatedDelta = 0;
+let lastCalculatedDelta = null;
+
+// Tally of detected issues for dynamic focusArea determination
+let issueTally = {
+  kneeAnkle: 0,
+  kneeAngle: 0,
+  shoulder: 0,
+  good: 0,
+};
 
 // MediaPipe Landmark Mapping
 const LM = {
@@ -137,7 +160,7 @@ const LM = {
   RIGHT_ANKLE: 28,
 };
 
-// --- Storage Helpers ---
+// --- Storage Helpers (100% Real User Data, Zero Fake Demos) ---
 const STORAGE_KEYS = {
   USER_PROFILE: 'adaptive_yoga_user_profile',
   SESSIONS: 'adaptive_yoga_sessions',
@@ -162,42 +185,25 @@ function getStoredSessions() {
     const raw = localStorage.getItem(STORAGE_KEYS.SESSIONS);
     let sessions = raw ? JSON.parse(raw) : [];
 
-    // Validate that sessions is an array with valid records
     if (!Array.isArray(sessions)) {
-      sessions = [];
-    } else {
-      sessions = sessions.filter(s => s && typeof s === 'object' && s.afterScore !== undefined);
+      return [];
     }
-    
-    // Seed 2 realistic demo sessions if fewer than 2 exist
-    if (!sessions || sessions.length < 2) {
-      sessions = [
-        {
-          id: 'demo-1',
-          timestamp: Date.now() - 172800000, // 2 days ago
-          dateStr: new Date(Date.now() - 172800000).toLocaleDateString([], { month: 'short', day: 'numeric' }),
-          pose: 'Warrior II',
-          beforeScore: 58,
-          afterScore: 76,
-          delta: 18,
-          focusArea: 'Knee-over-ankle alignment',
-          isDemo: true,
-        },
-        {
-          id: 'demo-2',
-          timestamp: Date.now() - 86400000, // 1 day ago
-          dateStr: new Date(Date.now() - 86400000).toLocaleDateString([], { month: 'short', day: 'numeric' }),
-          pose: 'Warrior II',
-          beforeScore: 65,
-          afterScore: 84,
-          delta: 19,
-          focusArea: 'Knee-over-ankle alignment',
-          isDemo: true,
-        }
-      ];
-      localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
+
+    // Filter out any legacy demo or invalid sessions — NO fake data allowed
+    const cleaned = sessions.filter(s => 
+      s && 
+      typeof s === 'object' && 
+      s.afterScore !== undefined && 
+      !s.isDemo && 
+      !String(s.id).startsWith('demo-')
+    );
+
+    // If legacy demo sessions were cleaned out, persist the clean array
+    if (cleaned.length !== sessions.length) {
+      localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(cleaned));
     }
-    return sessions;
+
+    return cleaned;
   } catch (e) {
     console.error('Failed to load sessions:', e);
     return [];
@@ -208,6 +214,59 @@ function saveSessionRecord(record) {
   const sessions = getStoredSessions();
   sessions.push(record);
   localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
+}
+
+// --- Session State Reset ---
+function resetSessionState() {
+  validFrameCount = 0;
+  currentFeedbackState = 'neutral';
+  activeFeedbackCategory = null;
+  pendingFeedbackCategory = null;
+  pendingFeedbackFrames = 0;
+
+  baselineBeforeScore = null;
+  correctedAfterScore = null;
+  latestMeasuredScore = null;
+  peakScoreThisSession = 0;
+  lastCalculatedDelta = null;
+
+  issueTally = {
+    kneeAnkle: 0,
+    kneeAngle: 0,
+    shoulder: 0,
+    good: 0,
+  };
+
+  if (deltaBadge) {
+    deltaBadge.style.display = 'none';
+  }
+  if (liveScoreDisplay) liveScoreDisplay.textContent = '--';
+  if (scoreGrade) {
+    scoreGrade.textContent = 'Stand in frame';
+    scoreGrade.style.color = '#38bdf8';
+  }
+  if (frontKneeAngleDisplay) frontKneeAngleDisplay.textContent = '--°';
+  if (kneeAnkleOffsetDisplay) {
+    kneeAnkleOffsetDisplay.textContent = '--%';
+    kneeAnkleOffsetDisplay.style.color = '#f8fafc';
+  }
+  if (kneeAnkleOffsetTarget) {
+    kneeAnkleOffsetTarget.textContent = 'target ≤12%';
+  }
+  if (shoulderTiltDisplay) {
+    shoulderTiltDisplay.textContent = '--°';
+    shoulderTiltDisplay.style.color = '#f8fafc';
+  }
+  if (stanceDisplay) {
+    stanceDisplay.textContent = 'Detecting...';
+    stanceDisplay.style.color = '#64748b';
+  }
+  if (frontLegLabel) frontLegLabel.textContent = 'auto-detect';
+
+  if (feedbackBanner) feedbackBanner.className = 'feedback-banner state-neutral';
+  if (feedbackIcon) feedbackIcon.textContent = '🧘';
+  if (feedbackText) feedbackText.textContent = 'Step into the camera frame to begin alignment tracking';
+  if (feedbackSub) feedbackSub.textContent = 'Ensure your full body from shoulders to ankles is visible';
 }
 
 // --- View Router ---
@@ -229,12 +288,12 @@ function updateWhyExplanation(level) {
   const sessions = getStoredSessions();
   const hasHistory = sessions.length > 0;
   const latestSession = hasHistory ? sessions[sessions.length - 1] : null;
-  const recentScore = latestSession ? latestSession.afterScore : 70;
+  const recentScore = latestSession ? latestSession.afterScore : null;
 
-  // Adaptive difficulty adjustment based on past performance
-  if (recentScore >= 82) {
+  // Adaptive difficulty adjustment based strictly on real past performance
+  if (recentScore !== null && recentScore >= 82) {
     whyExplanationText.innerHTML = 
-      `<strong>Adaptive Progression:</strong> Based on your strong alignment score (<strong>${recentScore}/100</strong>) in your last session, today's session advances to sustained endurance: focus on deepening your front thigh parallel to the floor while maintaining steady breath.`;
+      `<strong>Adaptive Progression:</strong> Based on your verified alignment score (<strong>${recentScore}/100</strong>) in your last session, today's practice advances to sustained endurance: focus on deepening your front thigh parallel to the floor while maintaining steady knee-over-ankle stack.`;
     return;
   }
 
@@ -251,7 +310,7 @@ function updateWhyExplanation(level) {
   }
 }
 
-// --- Math Helpers ---
+// --- Math & 2D Landmark Geometry Helpers ---
 function calculateAngle2D(p1, p2, p3) {
   if (!p1 || !p2 || !p3) return 0;
   const v1x = p1.x - p2.x;
@@ -271,13 +330,14 @@ function calculateAngle2D(p1, p2, p3) {
 }
 
 function calculateHorizontalAngle(p1, p2) {
+  if (!p1 || !p2) return 0;
   const dx = Math.abs(p2.x - p1.x);
   const dy = Math.abs(p2.y - p1.y);
   if (dx === 0 && dy === 0) return 0;
   return Math.round((Math.atan2(dy, dx) * 180) / Math.PI);
 }
 
-// --- Pose Analysis & Scoring ---
+// --- Warrior II Landmark Geometry & Pose Analysis ---
 function analyzeWarriorIIPose(landmarks) {
   const keyNodes = [
     LM.LEFT_SHOULDER, LM.RIGHT_SHOULDER,
@@ -292,7 +352,7 @@ function analyzeWarriorIIPose(landmarks) {
   }
   const avgVis = totalVis / keyNodes.length;
 
-  // Confidence gating
+  // Confidence gating: reject frames where key joints are hidden or out of frame
   if (avgVis < 0.55) {
     return { confidenceSufficient: false };
   }
@@ -310,39 +370,57 @@ function analyzeWarriorIIPose(landmarks) {
   const lKneeAngle = calculateAngle2D(lHip, lKnee, lAnkle);
   const rKneeAngle = calculateAngle2D(rHip, rKnee, rAnkle);
 
-  // Determine front bent leg (smaller angle is bent knee)
+  // Determine front bent leg (smaller angle corresponds to bent knee)
   let frontLeg = 'left';
   let frontKneeAngle = lKneeAngle;
   let rearKneeAngle = rKneeAngle;
   let frontKneePt = lKnee;
+  let frontAnklePt = lAnkle;
 
   if (rKneeAngle < lKneeAngle) {
     frontLeg = 'right';
     frontKneeAngle = rKneeAngle;
     rearKneeAngle = lKneeAngle;
     frontKneePt = rKnee;
+    frontAnklePt = rAnkle;
   }
 
-  // Shoulder horizontal line angle
+  // --- Real Knee ↔ Ankle Alignment Geometry (2D camera-plane estimate) ---
+  const horizontalDx = Math.abs(frontKneePt.x - frontAnklePt.x);
+  const shinLength = Math.hypot(frontKneePt.x - frontAnklePt.x, frontKneePt.y - frontAnklePt.y);
+
+  // Offset percentage of visible shin length (defensive check against zero shin length)
+  const kneeAnkleOffsetPct = shinLength > 0.01 
+    ? Math.round((horizontalDx / shinLength) * 100) 
+    : 0;
+
+  // Threshold: <= 12% is reasonably stacked in camera plane
+  const kneeStacked = kneeAnkleOffsetPct <= 12;
+
+  // Normalized Knee/Ankle alignment score (0 - 100)
+  const kneeAnkleAlignmentScore = Math.max(0, Math.min(100, Math.round(100 - (kneeAnkleOffsetPct * 2.2))));
+
+  // Knee angle control score (ideal front knee: 90°, acceptable range 85° - 105°)
+  const idealKnee = 90;
+  const kneeDiff = Math.abs(frontKneeAngle - idealKnee);
+  const kneeAngleScore = Math.max(0, Math.min(100, Math.round(100 - (kneeDiff * 1.8))));
+
+  // Shoulder horizontal line angle & stability score (ideal: 0°, acceptable < 8°)
   const shoulderTilt = calculateHorizontalAngle(lShoulder, rShoulder);
+  const shoulderScore = Math.max(0, Math.min(100, Math.round(100 - (shoulderTilt * 4))));
 
   // Stance classification
   const isWarriorStance = (frontKneeAngle < 135 && rearKneeAngle > 130);
 
-  // --- Calculate Movement Quality Score (0-100) ---
-  // Ideal front knee in Warrior II: 90° (acceptable range: 85° - 105°)
-  const idealKnee = 90;
-  const kneeDiff = Math.abs(frontKneeAngle - idealKnee);
-  let kneeScore = Math.max(0, 100 - (kneeDiff * 1.8));
-
-  // Ideal shoulder tilt: 0° (acceptable < 8°)
-  let shoulderScore = Math.max(0, 100 - (shoulderTilt * 4));
-
-  // Weighted score: 65% knee alignment + 35% shoulder line
-  const movementQualityScore = Math.round((kneeScore * 0.65) + (shoulderScore * 0.35));
-
-  // Knee alignment status
-  const kneeInRange = (frontKneeAngle >= 82 && frontKneeAngle <= 108);
+  // --- Upgraded Movement Quality Score (Transparent 45% / 35% / 20% weights) ---
+  // 45% = knee angle control
+  // 35% = knee/ankle spatial alignment
+  // 20% = shoulder stability
+  const movementQualityScore = Math.max(0, Math.min(100, Math.round(
+    (kneeAngleScore * 0.45) +
+    (kneeAnkleAlignmentScore * 0.35) +
+    (shoulderScore * 0.20)
+  )));
 
   return {
     confidenceSufficient: true,
@@ -350,10 +428,15 @@ function analyzeWarriorIIPose(landmarks) {
     frontKneeAngle,
     rearKneeAngle,
     frontKneePt,
+    frontAnklePt,
+    kneeAnkleOffsetPct,
+    kneeStacked,
+    kneeAnkleAlignmentScore,
+    kneeAngleScore,
     shoulderTilt,
+    shoulderScore,
     isWarriorStance,
     movementQualityScore,
-    kneeInRange,
   };
 }
 
@@ -367,7 +450,7 @@ function onPoseResults(results) {
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-  // Mirror camera view
+  // Mirror camera view for intuitive user experience
   canvasCtx.translate(canvasElement.width, 0);
   canvasCtx.scale(-1, 1);
   canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
@@ -390,7 +473,7 @@ function onPoseResults(results) {
       radius: 3.5,
     });
 
-    // Analyze pose
+    // Analyze pose geometry
     const analysis = analyzeWarriorIIPose(results.poseLandmarks);
 
     if (!analysis.confidenceSufficient) {
@@ -405,20 +488,25 @@ function onPoseResults(results) {
   canvasCtx.restore();
 }
 
-// --- Alignment & Debounce State Machine ---
+// --- Out of Frame / No Person State Handlers ---
 function handleLowConfidence() {
   currentFeedbackState = 'out_of_frame';
   liveScoreDisplay.textContent = '--';
   scoreGrade.textContent = 'Step in frame';
+  scoreGrade.style.color = '#ef4444';
   frontKneeAngleDisplay.textContent = '--°';
+  kneeAnkleOffsetDisplay.textContent = '--%';
+  kneeAnkleOffsetDisplay.style.color = '#94a3b8';
+  kneeAnkleOffsetTarget.textContent = 'target ≤12%';
   shoulderTiltDisplay.textContent = '--°';
+  shoulderTiltDisplay.style.color = '#94a3b8';
   stanceDisplay.textContent = 'Partial view';
   stanceDisplay.style.color = '#ef4444';
 
   feedbackBanner.className = 'feedback-banner state-caution';
   feedbackIcon.textContent = '👤';
   feedbackText.textContent = 'Step fully into the camera frame';
-  feedbackSub.textContent = 'Position yourself so your full body is visible for accurate tracking';
+  feedbackSub.textContent = 'Position yourself so your full body from shoulders to ankles is visible for accurate tracking';
   speakCoachCue('Please step fully into the camera frame.');
 }
 
@@ -426,8 +514,13 @@ function handleNoPerson() {
   currentFeedbackState = 'neutral';
   liveScoreDisplay.textContent = '--';
   scoreGrade.textContent = 'No person detected';
+  scoreGrade.style.color = '#64748b';
   frontKneeAngleDisplay.textContent = '--°';
+  kneeAnkleOffsetDisplay.textContent = '--%';
+  kneeAnkleOffsetDisplay.style.color = '#94a3b8';
+  kneeAnkleOffsetTarget.textContent = 'target ≤12%';
   shoulderTiltDisplay.textContent = '--°';
+  shoulderTiltDisplay.style.color = '#94a3b8';
   stanceDisplay.textContent = 'Stand in frame';
   stanceDisplay.style.color = '#64748b';
 
@@ -437,10 +530,31 @@ function handleNoPerson() {
   feedbackSub.textContent = 'Ensure good lighting and plenty of room to extend your arms';
 }
 
+// --- Pose Analysis & Measured Feedback State Machine ---
 function handlePoseAnalysis(analysis) {
+  // Track valid, confident frame
+  validFrameCount++;
+  latestMeasuredScore = analysis.movementQualityScore;
+
+  // Capture baseline score on first confident valid frame
+  if (baselineBeforeScore === null) {
+    baselineBeforeScore = analysis.movementQualityScore;
+  }
+
+  // Track peak score
+  if (analysis.movementQualityScore > peakScoreThisSession) {
+    peakScoreThisSession = analysis.movementQualityScore;
+  }
+
   // Update HUD values
   frontKneeAngleDisplay.textContent = `${analysis.frontKneeAngle}°`;
+  kneeAnkleOffsetDisplay.textContent = `${analysis.kneeAnkleOffsetPct}%`;
+  kneeAnkleOffsetDisplay.style.color = analysis.kneeStacked ? '#10b981' : '#f59e0b';
+  kneeAnkleOffsetTarget.textContent = analysis.kneeStacked ? 'Stacked (≤12%)' : 'Needs alignment';
+
   shoulderTiltDisplay.textContent = `${analysis.shoulderTilt}°`;
+  shoulderTiltDisplay.style.color = analysis.shoulderTilt <= 8 ? '#10b981' : '#f59e0b';
+
   liveScoreDisplay.textContent = analysis.movementQualityScore;
   frontLegLabel.textContent = `${analysis.frontLeg.toUpperCase()} leg forward`;
 
@@ -461,16 +575,11 @@ function handlePoseAnalysis(analysis) {
   canvasCtx.fillStyle = '#ffffff';
   canvasCtx.strokeStyle = '#000000';
   canvasCtx.lineWidth = 3;
-  canvasCtx.strokeText(`${analysis.frontKneeAngle}°`, -kx - 28, ky - 10);
-  canvasCtx.fillText(`${analysis.frontKneeAngle}°`, -kx - 28, ky - 10);
+  canvasCtx.strokeText(`${analysis.frontKneeAngle}° (${analysis.kneeAnkleOffsetPct}%)`, -kx - 45, ky - 10);
+  canvasCtx.fillText(`${analysis.frontKneeAngle}° (${analysis.kneeAnkleOffsetPct}%)`, -kx - 45, ky - 10);
   canvasCtx.restore();
 
-  // Track peak score
-  if (analysis.movementQualityScore > peakScoreThisSession) {
-    peakScoreThisSession = analysis.movementQualityScore;
-  }
-
-  // Quality score grade
+  // Quality score grade label
   if (analysis.movementQualityScore >= 80) {
     scoreGrade.textContent = 'Optimal Alignment';
     scoreGrade.style.color = '#10b981';
@@ -482,50 +591,98 @@ function handlePoseAnalysis(analysis) {
     scoreGrade.style.color = '#ef4444';
   }
 
-  // --- Debounced Feedback Logic ---
-  if (analysis.kneeInRange && analysis.shoulderTilt <= 10) {
-    consecutiveGoodFrames++;
-    consecutiveBadFrames = 0;
+  // --- Strict Feedback Priority Matching Actual Measurements ---
+  // Exactly ONE primary actionable correction at a time:
+  // Priority A: Poor knee/ankle alignment (offset > 12%)
+  // Priority B: Knee angle too open (> 105°)
+  // Priority C: Knee angle too closed (< 82°)
+  // Priority D: Shoulders tilted (> 8°)
+  // Priority E: All major checks good
+  let currentProblem = null;
 
-    if (consecutiveGoodFrames >= DEBOUNCE_THRESHOLD) {
-      if (currentFeedbackState !== 'good') {
-        currentFeedbackState = 'good';
-        feedbackBanner.className = 'feedback-banner state-good';
-        feedbackIcon.textContent = '✨';
-        feedbackText.textContent = 'Good alignment! Keep holding steady.';
-        feedbackSub.textContent = 'Front knee stacked nicely over ankle with level shoulders.';
-        speakCoachCue('Good alignment. Keep holding steady.');
-
-        // Capture corrected "After" score
-        if (baselineBeforeScore !== null) {
-          correctedAfterScore = analysis.movementQualityScore;
-          lastCalculatedDelta = Math.max(0, correctedAfterScore - baselineBeforeScore);
-          
-          if (lastCalculatedDelta > 0) {
-            deltaBadge.style.display = 'inline-flex';
-            deltaBadgeText.textContent = `Movement quality improved by +${lastCalculatedDelta}`;
-          }
-        }
-      }
-    }
+  if (!analysis.kneeStacked) {
+    currentProblem = {
+      category: 'knee_ankle',
+      isIssue: true,
+      primary: 'Bring your front knee back over your ankle.',
+      supporting: `Camera-plane knee/ankle offset: ${analysis.kneeAnkleOffsetPct}%. Aim for ≤12%.`,
+      speech: 'Bring your front knee back over your ankle.'
+    };
+  } else if (analysis.frontKneeAngle > 105) {
+    currentProblem = {
+      category: 'knee_open',
+      isIssue: true,
+      primary: 'Bend your front knee a little deeper.',
+      supporting: `Current knee angle: ${analysis.frontKneeAngle}°. Aim near 90°.`,
+      speech: 'Bend your front knee a little deeper.'
+    };
+  } else if (analysis.frontKneeAngle < 82) {
+    currentProblem = {
+      category: 'knee_closed',
+      isIssue: true,
+      primary: 'Ease your front knee back slightly.',
+      supporting: `Current knee angle: ${analysis.frontKneeAngle}°. Aim near 90°.`,
+      speech: 'Ease your front knee back slightly.'
+    };
+  } else if (analysis.shoulderTilt > 8) {
+    currentProblem = {
+      category: 'shoulder',
+      isIssue: true,
+      primary: 'Level your shoulders.',
+      supporting: `Current shoulder tilt: ${analysis.shoulderTilt}°. Keep arms parallel to floor.`,
+      speech: 'Level your shoulders.'
+    };
   } else {
-    consecutiveBadFrames++;
-    consecutiveGoodFrames = 0;
+    currentProblem = {
+      category: 'good',
+      isIssue: false,
+      primary: 'Good alignment! Keep holding steady.',
+      supporting: `Knee stacked (${analysis.kneeAnkleOffsetPct}%), knee angle ${analysis.frontKneeAngle}°, shoulders level.`,
+      speech: 'Good alignment. Keep holding steady.'
+    };
+  }
 
-    if (consecutiveBadFrames >= DEBOUNCE_THRESHOLD) {
-      if (currentFeedbackState !== 'warn') {
-        currentFeedbackState = 'warn';
-        feedbackBanner.className = 'feedback-banner state-warn';
-        feedbackIcon.textContent = '⚠️';
-        feedbackText.textContent = 'Try keeping your front knee aligned with your ankle.';
-        feedbackSub.textContent = analysis.frontKneeAngle > 108 
-          ? 'Deepen the front lunge slightly toward 90°.' 
-          : 'Ease back slightly so your knee does not push past your toes.';
-        speakCoachCue('Try keeping your front knee aligned with your ankle.');
+  // Tally for focusArea determination
+  if (currentProblem.category === 'knee_ankle') issueTally.kneeAnkle++;
+  else if (currentProblem.category === 'knee_open' || currentProblem.category === 'knee_closed') issueTally.kneeAngle++;
+  else if (currentProblem.category === 'shoulder') issueTally.shoulder++;
+  else if (currentProblem.category === 'good') issueTally.good++;
 
-        // Capture "Before" score at moment warning appears
-        if (baselineBeforeScore === null) {
-          baselineBeforeScore = analysis.movementQualityScore;
+  // --- Debouncing State Machine ---
+  if (currentProblem.category === pendingFeedbackCategory) {
+    pendingFeedbackFrames++;
+  } else {
+    pendingFeedbackCategory = currentProblem.category;
+    pendingFeedbackFrames = 1;
+  }
+
+  if (pendingFeedbackFrames >= DEBOUNCE_THRESHOLD && activeFeedbackCategory !== pendingFeedbackCategory) {
+    activeFeedbackCategory = pendingFeedbackCategory;
+
+    if (currentProblem.isIssue) {
+      currentFeedbackState = 'warn';
+      feedbackBanner.className = 'feedback-banner state-warn';
+      feedbackIcon.textContent = '⚠️';
+      feedbackText.textContent = currentProblem.primary;
+      feedbackSub.textContent = currentProblem.supporting;
+      speakCoachCue(currentProblem.speech);
+    } else {
+      currentFeedbackState = 'good';
+      feedbackBanner.className = 'feedback-banner state-good';
+      feedbackIcon.textContent = '✨';
+      feedbackText.textContent = currentProblem.primary;
+      feedbackSub.textContent = currentProblem.supporting;
+      speakCoachCue(currentProblem.speech);
+
+      // User achieved corrected alignment
+      correctedAfterScore = analysis.movementQualityScore;
+      if (baselineBeforeScore !== null) {
+        lastCalculatedDelta = correctedAfterScore - baselineBeforeScore;
+        if (lastCalculatedDelta > 0) {
+          deltaBadge.style.display = 'inline-flex';
+          deltaBadgeText.textContent = `Movement quality improved by +${lastCalculatedDelta}`;
+        } else {
+          deltaBadge.style.display = 'none';
         }
       }
     }
@@ -595,23 +752,83 @@ function startSessionTimer() {
   }, 1000);
 }
 
-// --- End Session & Summary ---
+// --- End Session & Summary (Zero Fallbacks, Real CV Measurements Only) ---
 function finishSession() {
   stopPracticeCamera();
 
-  // If user never triggered a before/after sequence, compute fallback from measured values
-  const finalBefore = baselineBeforeScore ?? 62;
-  const finalAfter = correctedAfterScore ?? (peakScoreThisSession > 0 ? peakScoreThisSession : 86);
-  const finalDelta = Math.max(0, finalAfter - finalBefore);
+  // Validate sufficient reliable pose data
+  if (validFrameCount < MIN_VALID_FRAMES || baselineBeforeScore === null || latestMeasuredScore === null) {
+    // Insufficient data: DO NOT invent scores, DO NOT save fake session
+    sumBeforeScore.textContent = '--';
+    sumBeforeHint.textContent = 'Insufficient data';
+    sumAfterScore.textContent = '--';
+    sumAfterHint.textContent = 'Insufficient data';
+    sumDeltaScore.textContent = '--';
+    sumDeltaScore.className = 'result-delta neutral';
+    sumDeltaLabel.textContent = 'Measured Improvement';
+    sumDeltaHint.textContent = 'Requires full-body visibility';
+
+    sumFocusArea.textContent = 'Camera Visibility';
+    sumFocusHint.textContent = 'Insufficient body tracking';
+
+    summarySubtitle.textContent = "We couldn't collect enough reliable pose data. Please try again with your full body visible in the camera frame.";
+    switchView('summary');
+    return;
+  }
+
+  // Real measurements are available
+  const finalBefore = baselineBeforeScore;
+  // If user achieved corrected posture, compare to correctedAfterScore; otherwise latest measured score
+  const finalAfter = correctedAfterScore !== null ? correctedAfterScore : latestMeasuredScore;
+  const finalDelta = finalAfter - finalBefore;
 
   sumBeforeScore.textContent = finalBefore;
+  sumBeforeHint.textContent = 'Initial alignment capture';
   sumAfterScore.textContent = finalAfter;
-  sumDeltaScore.textContent = `+${finalDelta}`;
+  sumAfterHint.textContent = 'Measured hold quality';
+
+  // Format Delta truthfully (can be positive, zero, or negative)
+  if (finalDelta > 0) {
+    sumDeltaScore.textContent = `+${finalDelta}`;
+    sumDeltaScore.className = 'result-delta';
+    sumDeltaLabel.textContent = 'Measured Improvement';
+    sumDeltaHint.textContent = 'Actual measured change';
+  } else if (finalDelta === 0) {
+    sumDeltaScore.textContent = '0';
+    sumDeltaScore.className = 'result-delta neutral';
+    sumDeltaLabel.textContent = 'Posture Consistency';
+    sumDeltaHint.textContent = 'Maintained initial score';
+  } else {
+    sumDeltaScore.textContent = `${finalDelta}`;
+    sumDeltaScore.className = 'result-delta negative';
+    sumDeltaLabel.textContent = 'Measured Score Shift';
+    sumDeltaHint.textContent = 'Posture drifted during hold';
+  }
+
+  // Determine focusArea from actual detected issues
+  let detectedFocus = 'Knee-over-ankle alignment';
+  let detectedFocusHint = 'Camera-plane alignment';
+
+  if (issueTally.kneeAnkle >= issueTally.kneeAngle && issueTally.kneeAnkle >= issueTally.shoulder && issueTally.kneeAnkle > 0) {
+    detectedFocus = 'Knee-over-ankle alignment';
+    detectedFocusHint = 'Front knee stack over ankle';
+  } else if (issueTally.kneeAngle >= issueTally.shoulder && issueTally.kneeAngle > 0) {
+    detectedFocus = 'Knee angle control';
+    detectedFocusHint = 'Front knee 90° depth';
+  } else if (issueTally.shoulder > 0) {
+    detectedFocus = 'Shoulder stability';
+    detectedFocusHint = 'Horizontal arm/shoulder line';
+  } else {
+    detectedFocus = 'Steady alignment hold';
+    detectedFocusHint = 'Maintained optimal posture';
+  }
+
+  sumFocusArea.textContent = detectedFocus;
+  sumFocusHint.textContent = detectedFocusHint;
 
   const profile = getUserProfile();
-  if (profile) {
-    summarySubtitle.textContent = `Solid work today, ${profile.name}! Your front knee alignment showed measurable progress.`;
-  }
+  const practitionerName = profile ? profile.name : 'Practitioner';
+  summarySubtitle.textContent = `Great work, ${practitionerName}! Your Warrior II hold was evaluated across ${validFrameCount} verified pose frames.`;
 
   // Save session record to localStorage
   const sessionRecord = {
@@ -622,67 +839,94 @@ function finishSession() {
     beforeScore: finalBefore,
     afterScore: finalAfter,
     delta: finalDelta,
-    focusArea: 'Knee-over-ankle alignment',
+    focusArea: detectedFocus,
+    measuredFrames: validFrameCount,
   };
   saveSessionRecord(sessionRecord);
-
-  // Reset session working variables
-  baselineBeforeScore = null;
-  correctedAfterScore = null;
-  peakScoreThisSession = 0;
-  lastCalculatedDelta = 0;
-  deltaBadge.style.display = 'none';
 
   switchView('summary');
 }
 
-// --- Progress View & Chart.js ---
+// --- Progress View & Chart.js (Safe for 0, 1, or N Real Sessions) ---
 function renderProgressView() {
   const sessions = getStoredSessions();
 
   // Populate history table
   historyTableBody.innerHTML = '';
-  // Show most recent first
-  const sorted = [...sessions].sort((a, b) => b.timestamp - a.timestamp);
 
-  sorted.forEach(s => {
+  if (sessions.length === 0) {
     const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td colspan="6" style="text-align: center; padding: 28px 16px; color: #94a3b8; font-size: 0.92rem;">
+        No practice sessions recorded yet. Complete your first practice to start tracking your alignment trajectory!
+      </td>
+    `;
+    historyTableBody.appendChild(tr);
+
+    progressInsightText.textContent = 
+      "Welcome! Complete your first practice session with the live camera to unlock personal alignment tracking and insights.";
+
+    if (progressChartInstance) {
+      progressChartInstance.destroy();
+      progressChartInstance = null;
+    }
+    return;
+  }
+
+  // Show most recent sessions first in table
+  const sortedDesc = [...sessions].sort((a, b) => b.timestamp - a.timestamp);
+
+  sortedDesc.forEach(s => {
+    const tr = document.createElement('tr');
+    const deltaFormatted = s.delta > 0 
+      ? `<span style="color: #10b981; font-weight: 700;">+${s.delta} pts</span>`
+      : s.delta === 0
+        ? `<span style="color: #94a3b8; font-weight: 600;">0 pts</span>`
+        : `<span style="color: #f59e0b; font-weight: 700;">${s.delta} pts</span>`;
+
     tr.innerHTML = `
       <td>${s.dateStr || 'Recent'}</td>
       <td><strong>${s.pose || 'Warrior II'}</strong></td>
-      <td>${s.beforeScore || '--'}</td>
-      <td><span style="color: #10b981; font-weight: 700;">${s.afterScore || '--'}</span></td>
-      <td><span style="color: #38bdf8; font-weight: 700;">+${s.delta || 0} pts</span></td>
+      <td>${s.beforeScore !== undefined ? s.beforeScore : '--'}</td>
+      <td><span style="color: #10b981; font-weight: 700;">${s.afterScore !== undefined ? s.afterScore : '--'}</span></td>
+      <td>${deltaFormatted}</td>
       <td>${s.focusArea || 'Knee alignment'}</td>
     `;
     historyTableBody.appendChild(tr);
   });
 
-  // Plain-Language Insight Generator
-  if (sessions.length >= 2) {
-    const firstScore = sessions[0].afterScore;
-    const latestScore = sessions[sessions.length - 1].afterScore;
-    const totalChange = latestScore - firstScore;
+  // Plain-Language Honest Insight Generator
+  if (sessions.length === 1) {
+    progressInsightText.textContent = 
+      "Complete another practice to unlock a personal progress comparison.";
+  } else {
+    // Compare oldest vs newest session chronologically
+    const sortedAsc = [...sessions].sort((a, b) => a.timestamp - b.timestamp);
+    const firstSession = sortedAsc[0];
+    const latestSession = sortedAsc[sortedAsc.length - 1];
+    const totalChange = latestSession.afterScore - firstSession.afterScore;
 
     if (totalChange > 0) {
       progressInsightText.textContent = 
-        `Your Warrior II alignment has improved by +${totalChange} points over your last ${sessions.length} sessions. Your front knee stability is becoming more consistent!`;
+        `Your Warrior II alignment has improved by +${totalChange} points across your ${sessions.length} recorded practices. Your front knee and shoulder stability are steadily advancing!`;
+    } else if (totalChange === 0) {
+      progressInsightText.textContent = 
+        `You have completed ${sessions.length} recorded Warrior II sessions with consistent alignment scores. Keep holding steady!`;
     } else {
       progressInsightText.textContent = 
-        `You have completed ${sessions.length} Warrior II sessions. Keep practicing regularly to build muscle memory and knee-over-ankle stability!`;
+        `You have completed ${sessions.length} recorded practices. Focus on keeping your front knee stacked over your ankle (≤12% offset) to elevate your alignment score.`;
     }
-  } else {
-    progressInsightText.textContent = 
-      `Great start! Complete another session to see your alignment improvement curve across multiple days.`;
   }
 
   // Render Chart.js Line Graph
   const chartCanvas = document.getElementById('progressChart');
   if (!chartCanvas) return;
 
-  const labels = sessions.map((s, idx) => s.dateStr || `Session ${idx + 1}`);
-  const scores = sessions.map(s => s.afterScore);
-  const baselines = sessions.map(s => s.beforeScore);
+  // Chronological order for chart progression
+  const sortedAsc = [...sessions].sort((a, b) => a.timestamp - b.timestamp);
+  const labels = sortedAsc.map((s, idx) => s.dateStr || `Session ${idx + 1}`);
+  const scores = sortedAsc.map(s => s.afterScore);
+  const baselines = sortedAsc.map(s => s.beforeScore);
 
   if (progressChartInstance) {
     progressChartInstance.destroy();
@@ -695,7 +939,7 @@ function renderProgressView() {
       labels,
       datasets: [
         {
-          label: 'Peak Alignment Score',
+          label: 'Final / Peak Score',
           data: scores,
           borderColor: '#10b981',
           backgroundColor: 'rgba(16, 185, 129, 0.15)',
@@ -724,7 +968,7 @@ function renderProgressView() {
       maintainAspectRatio: false,
       scales: {
         y: {
-          min: 40,
+          min: 0,
           max: 100,
           ticks: {
             color: '#94a3b8',
@@ -784,13 +1028,16 @@ onboardingForm.addEventListener('submit', (e) => {
 
 // Start Practice Button
 startPracticeBtn.addEventListener('click', () => {
+  resetSessionState();
   switchView('camera');
   speakCoachCue('Starting Warrior II practice.');
   startPracticeCamera();
 });
 
 // Resume Camera (if paused)
-resumeCameraBtn.addEventListener('click', startPracticeCamera);
+resumeCameraBtn.addEventListener('click', () => {
+  startPracticeCamera();
+});
 
 // End Session Button
 endSessionBtn.addEventListener('click', finishSession);
@@ -798,11 +1045,13 @@ endSessionBtn.addEventListener('click', finishSession);
 // Summary Actions
 viewProgressFromSummaryBtn.addEventListener('click', () => switchView('progress'));
 practiceAgainBtn.addEventListener('click', () => {
+  resetSessionState();
   switchView('sessionPrep');
 });
 
 // Progress Action
 newSessionBtn.addEventListener('click', () => {
+  resetSessionState();
   const profile = getUserProfile();
   if (profile) {
     updateWhyExplanation(profile.experience);
@@ -824,6 +1073,7 @@ navPracticeBtn.addEventListener('click', () => {
 });
 
 navProgressBtn.addEventListener('click', () => switchView('progress'));
+
 navProfileBtn.addEventListener('click', () => {
   const profile = getUserProfile();
   if (profile) {
@@ -842,8 +1092,11 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// --- Application Init ---
+// --- Application Initialization ---
 window.addEventListener('DOMContentLoaded', () => {
+  // Clean out any legacy demo sessions from localStorage
+  getStoredSessions();
+
   const profile = getUserProfile();
   if (profile) {
     updateWhyExplanation(profile.experience);

@@ -68,14 +68,17 @@ graph LR
   end
 ```
 
-### Key Biomechanical Formulas:
+### Key 2D Landmark Geometry Formulas (Wellness-Oriented CV Estimates):
 - **Joint Angle (Hip $\to$ Knee $\to$ Ankle)**:
   $$\theta = \arccos\left(\frac{\vec{BA} \cdot \vec{BC}}{\|\vec{BA}\| \|\vec{BC}\|}\right) \times \frac{180}{\pi}$$
   *Safeguarded against float precision domain errors with strict clamping $[-1.0, 1.0]$.*
-- **Horizontal Shoulder Levelness**:
+- **Knee ↔ Ankle Spatial Alignment (Camera-Plane)**:
+  $$\text{Offset}_{\%} = \frac{|\text{Knee}_x - \text{Ankle}_x|}{\sqrt{(\text{Knee}_x - \text{Ankle}_x)^2 + (\text{Knee}_y - \text{Ankle}_y)^2}} \times 100$$
+  *Threshold: $\le 12\%$ indicates stacked alignment; score penalized as offset increases.*
+- **Horizontal Shoulder Line Tilt**:
   $$\phi = \arctan\left(\frac{|\Delta Y|}{|\Delta X|}\right) \times \frac{180}{\pi}$$
-- **Movement Quality Score ($0 - 100$)**:
-  $$\text{Score} = \text{clamp}\left(0.65 \times \text{Score}_{\text{knee}} + 0.35 \times \text{Score}_{\text{shoulder}}, 0, 100\right)$$
+- **Transparent Movement Quality Score ($0 - 100$)**:
+  $$\text{Score} = \text{clamp}\left(0.45 \times \text{Score}_{\text{knee\_angle}} + 0.35 \times \text{Score}_{\text{knee\_ankle}} + 0.20 \times \text{Score}_{\text{shoulder}}, 0, 100\right)$$
 
 ---
 

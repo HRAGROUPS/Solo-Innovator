@@ -18,9 +18,10 @@ Unlike conventional fitness apps that stream pre-recorded videos without feedbac
 
 | Metric | Target Optimal | Acceptable Range | Feedback Threshold |
 | :--- | :---: | :---: | :--- |
-| **Front Knee Angle** | `90°` | `85° – 105°` | Outside `82° – 108°` triggers debounced knee stack reminder |
+| **Front Knee Angle** | `90°` | `85° – 105°` | Outside `82° – 105°` triggers debounced knee depth adjustment |
+| **Knee ↔ Ankle Stack** | `≤ 12%` | `0% – 12%` | `> 12%` offset triggers "Bring your front knee back over your ankle" |
 | **Rear Leg Angle** | `180°` | `150° – 180°` | `< 130°` indicates non-Warrior II stance |
-| **Shoulder Tilt** | `0°` | `< 8°` | `> 10°` triggers torso upright leveling prompt |
+| **Shoulder Tilt** | `0°` | `< 8°` | `> 8°` triggers torso upright leveling prompt |
 | **Landmark Confidence** | `> 0.70` | `> 0.55` | `< 0.55` triggers "Step fully into frame" gating |
 
 ```mermaid
@@ -29,14 +30,15 @@ graph TD
   B --> C[33 Key Landmarks Coordinates]
   C --> D{Confidence Visibility Check}
   D -- Visibility < 0.55 --> E[Prompt: Step Fully Into Frame]
-  D -- Visibility >= 0.55 --> F[Calculate 2D Vector Angles]
-  F --> G[Front Knee: Hip-Knee-Ankle]
-  F --> H[Shoulder Line Horizontal Tilt]
-  G & H --> I[Weighted Movement Quality Score 0-100]
-  I --> J{Debounce 5 Frames}
-  J -- Out of Range --> K[Snapshot 'Before' Score + Alert]
-  J -- Corrected in Range --> L[Snapshot 'After' Score + Delta Badge]
-  L --> M[Session Summary & Chart.js LocalStorage]
+  D -- Visibility >= 0.55 --> F[Calculate 2D Vector Angles & Landmark Distances]
+  F --> G[Front Knee Angle & Rear Knee Stance]
+  F --> H[Knee ↔ Ankle Horizontal Offset / Shin Length]
+  F --> I[Shoulder Line Horizontal Tilt]
+  G & H & I --> J[Transparent Score: 45% Knee + 35% Stack + 20% Shoulder]
+  J --> K{Debounce 5 Frames & Priority State}
+  K -- Alignment Issue --> L[Targeted Micro-Cue + Snapshot Baseline]
+  K -- Corrected Posture --> M[Hold Cue + Measure Delta]
+  M --> N[Session Summary & Chart.js LocalStorage]
 ```
 
 ---
@@ -47,14 +49,18 @@ graph TD
    - Captures user goals (Flexibility, Strength, Stress Relief, Balance) and experience levels (Beginner, Intermediate, Advanced).
    - Generates contextual "Why This Session" guidance tailored to the practitioner's background.
 
-2. **Edge Pose Detection & Geometric Angle Analysis (MediaPipe Pose)**:
+2. **Edge Pose Detection & 2D Landmark Geometry (MediaPipe Pose)**:
    - Tracks 33 body landmarks entirely client-side via CDN scripts.
-   - Calculates 2D vector angles for the **front bent knee** (Hip $\to$ Knee $\to$ Ankle) and **horizontal shoulder line alignment**.
-   - Auto-detects front vs. rear leg orientation and stance classification.
+   - Calculates 2D vector angles for the **front bent knee** and **rear leg extension**.
+   - Computes **Knee ↔ Ankle camera-plane spatial alignment** (horizontal displacement relative to visible shin length).
+   - Auto-detects front vs. rear leg orientation and classifies Warrior II stance.
 
-3. **Live Movement Quality Score (0–100)**:
-   - Evaluates deviation from optimal alignment (front knee ~90°, horizontal shoulders).
-   - Dynamically updates a live score and visual alignment quality grade.
+3. **Live Transparent Movement Quality Score (0–100)**:
+   - Evaluates:
+     - **45%**: Knee angle control (deviation from 90°).
+     - **35%**: Knee ↔ ankle spatial stack (target $\le 12\%$ shin-normalized offset).
+     - **20%**: Horizontal shoulder levelness (target $< 8^\circ$).
+   - Displays live score, quality grade, and real-time metric readings in the HUD.
 
 4. **Debounced Alignment Feedback & Confidence Gating**:
    - Employs temporal multi-frame debouncing to eliminate flickering feedback.
