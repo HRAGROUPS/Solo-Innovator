@@ -50,6 +50,9 @@ if (voiceCoachToggleBtn) {
     isVoiceCoachEnabled = !isVoiceCoachEnabled;
     voiceIcon.textContent = isVoiceCoachEnabled ? '🔊' : '🔇';
     voiceStatusText.textContent = isVoiceCoachEnabled ? 'ON' : 'OFF';
+    if (isVoiceCoachEnabled) {
+      speakCoachCue('Voice coach active.');
+    }
   });
 }
 
@@ -782,6 +785,7 @@ onboardingForm.addEventListener('submit', (e) => {
 // Start Practice Button
 startPracticeBtn.addEventListener('click', () => {
   switchView('camera');
+  speakCoachCue('Starting Warrior II practice.');
   startPracticeCamera();
 });
 
