@@ -32,20 +32,22 @@ Instead of a binary *"Warrior II Detected"* check, the system:
 | Capability | Requirement | Implementation in Adaptive Yoga Coach | Status |
 | :--- | :--- | :--- | :---: |
 | **Personalized Onboarding** | Capture goals, experience level, preferred duration, and preferences | Form collects practitioner Name, Goal (Flexibility, Strength, Stress Relief, Balance), Experience Level (Beginner, Intermediate, Advanced), and Hold Duration (1m, 2m, 3m). Saved to `localStorage`. | ✅ **Complete** |
-| **Intelligent Routine Generation** | Create or recommend sessions that adapt to the user's profile | Rule-based engine dynamically crafts the "Why This Session For You" guidance based on experience level and goal. | ✅ **Complete** |
+| **Intelligent Routine Generation** | Create or recommend sessions that adapt to the user's profile | Adaptive engine dynamically crafts the "Why This Session For You" rationale and breakdown (Target Focus, Observed Rationale, Session Plan) based on the user's Practice Fingerprint and goal. | ✅ **Complete** |
 | **Pose Recognition** | Identify selected yoga poses using computer vision | Real-time MediaPipe Pose identifies 33 key joints, detects front vs. rear leg, and classifies Warrior II stance (`isWarriorStance = frontKnee < 135° && rearKnee > 130°`). | ✅ **Complete** |
-| **Alignment Feedback** | Detect meaningful deviations and communicate corrective guidance clearly | Anti-flicker debounced state machine prompts: *"Try keeping your front knee aligned with your ankle"* with visual color shifts and optional spoken voice prompts. | ✅ **Complete** |
-| **Adaptive Difficulty** | Adjust future sessions using performance, completion, and feedback | Dynamically inspects previous session scores: if peak score $\ge 82/100$, unlocks adaptive endurance progression and deeper lunge coaching. | ✅ **Complete** |
-| **Progress Intelligence** | Show useful trends rather than basic streaks or counts | Longitudinal Chart.js line graph tracks movement quality trajectories across sessions, with dynamic plain-language comparative insights (e.g. `+18 pts improvement`). | ✅ **Complete** |
+| **Alignment Feedback** | Detect meaningful deviations and communicate corrective guidance clearly | Anti-flicker debounced priority engine prompts targeted cues (*"Bring your front knee back over your ankle"*, *"Bend your front knee a little deeper"*, etc.) with visual indicators and spoken voice prompts. | ✅ **Complete** |
+| **Adaptive Difficulty** | Adjust future sessions using performance, completion, and feedback | Evaluates multidimensional historical performance (Foundation, Developing, Challenge) based on measured alignment, stability, and control across sessions. | ✅ **Complete** |
+| **Progress Intelligence** | Show useful trends rather than basic streaks or counts | Displays **Personal Practice Fingerprint** (Alignment, Stability, Control, Consistency), identifies primary weakness, and plots a 3-dimensional Chart.js trajectory. | ✅ **Complete** |
 
 ---
 
 ## 03 Advanced Innovation Opportunities Delivered
 
+- 🧬 **Personal Practice Fingerprint**: Generates a multidimensional profile representing how the practitioner holds poses over time (Alignment, Stability variance, Posture Control %, and Cross-Session Repeatability).
+- 🧠 **Closed-Loop Adaptation Engine**: Follows the `OBSERVE → MEASURE → LEARN → IDENTIFY WEAKNESS → ADAPT → RECOMMEND` intelligence loop. Next session focus and difficulty dynamically adjust to the user's actual measured weakness.
 - 🎙️ **Voice-First Interaction**: Integrated hands-free audio coach via the Web Speech API with debounce guards. Practitioners hear verbal coaching while staying grounded in their stance.
-- 💡 **Explainable Posture Feedback**: Every corrective prompt explains *why* (e.g. "Front knee stacked nicely over ankle with level shoulders" vs "Ease back so your knee does not push past your toes").
+- 💡 **Explainable Adaptation**: Breaks down *why* a session was recommended with transparent metrics (e.g. Target Focus, Observed Rationale, Session Plan).
 - 🔒 **Privacy-Conscious On-Device Vision**: 100% client-side execution via MediaPipe WebAssembly / GPU shaders. Zero video transmission, zero database, zero surveillance risk.
-- 📉 **Real Measured Delta Tracking**: Rather than arbitrary or hardcoded badges, the system samples the exact numerical score at the moment an alignment defect is detected and measures the delta once corrected.
+- 📉 **Real Measured Delta Tracking**: Rather than arbitrary or hardcoded badges, the system samples actual numerical scores and measures the real before/after delta ($+X$, $0$, or $-X$).
 - ⚡ **Offline-Ready & Zero-Dependency**: Pure vanilla HTML5, CSS3, and JavaScript running via CDN script tags with zero build tools or servers.
 
 ---
@@ -57,14 +59,18 @@ graph LR
   subgraph Client Browser [Client-Side Only - 100% Privacy]
     Camera[Webcam Video] --> Pose[MediaPipe Pose WASM]
     Pose --> Analysis[Warrior II Geometry Engine]
-    Analysis --> Scorer[Weighted Movement Quality Scorer]
-    Scorer --> Debounce[Debounced Feedback State Machine]
+    Analysis --> Scorer[Transparent 45/35/20 Scorer]
+    Scorer --> Temporal[Temporal Metric Sampler]
+    Temporal --> Stability[Stability & Control Engine]
+    Temporal --> Debounce[Debounced Priority State Machine]
     Debounce --> Voice[Web Speech Voice Coach]
     Debounce --> Canvas[HUD & Canvas Joint Overlays]
-    Debounce --> Storage[LocalStorage Session Store]
-    Storage --> Chart[Chart.js Longitudinal Analytics]
-    Storage --> Adapt[Adaptive Difficulty Engine]
-    Adapt --> Analysis
+    Stability --> Fingerprint[Personal Practice Fingerprint]
+    Fingerprint --> Weakness[Weakness Identification]
+    Weakness --> Adapt[Adaptive Session Engine]
+    Adapt --> Explain[Why This Session Explainability]
+    Fingerprint --> Storage[LocalStorage Session Store v2]
+    Storage --> Chart[Chart.js Multi-Dimensional Analytics]
   end
 ```
 

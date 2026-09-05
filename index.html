@@ -131,9 +131,25 @@
               <strong>Why This Session For You</strong>
             </div>
             <p id="whyExplanationText">
-              <!-- Dynamically populated from user profile logic -->
+              <!-- Dynamically populated from practice fingerprint & profile logic -->
               Since you're a beginner, we're starting with a moderate hold to build joint alignment awareness before deepening the lunge.
             </p>
+
+            <!-- Adaptive Reason Breakdown (Explainable Companion Engine) -->
+            <div class="adaptation-breakdown" id="adaptationBreakdown">
+              <div class="adapt-col">
+                <span class="adapt-tag">Target Focus</span>
+                <strong id="adaptFocusText">Knee Alignment</strong>
+              </div>
+              <div class="adapt-col">
+                <span class="adapt-tag">Observed Rationale</span>
+                <span id="adaptReasonText">Calibrating foundational posture</span>
+              </div>
+              <div class="adapt-col">
+                <span class="adapt-tag">Session Plan</span>
+                <span id="adaptPlanText">Foundation level hold with real-time cues</span>
+              </div>
+            </div>
           </div>
 
           <div class="key-points-grid">
@@ -306,6 +322,25 @@
             </div>
           </div>
 
+          <!-- Multidimensional Session Dimensions -->
+          <div class="session-dim-row" id="sessionDimRow">
+            <div class="dim-item">
+              <span class="dim-label">Alignment</span>
+              <span class="dim-val" id="sumAlignmentVal">--</span>
+              <span class="dim-sub">Front knee &amp; shoulders</span>
+            </div>
+            <div class="dim-item">
+              <span class="dim-label">Stability</span>
+              <span class="dim-val" id="sumStabilityVal">--</span>
+              <span class="dim-sub">Hold stillness</span>
+            </div>
+            <div class="dim-item">
+              <span class="dim-label">Control</span>
+              <span class="dim-val" id="sumControlVal">--</span>
+              <span class="dim-sub">Time inside posture</span>
+            </div>
+          </div>
+
           <div class="summary-actions">
             <button id="viewProgressFromSummaryBtn" class="btn btn-primary btn-large">
               View Progress History &amp; Chart
@@ -337,6 +372,69 @@
             </button>
           </div>
 
+          <!-- PERSONAL PRACTICE FINGERPRINT DASHBOARD -->
+          <div class="fingerprint-card" id="fingerprintCard">
+            <div class="fingerprint-header">
+              <div class="fingerprint-title">
+                <span class="pill-badge">Personal Intelligence</span>
+                <h3>Personal Practice Fingerprint</h3>
+              </div>
+              <div class="fingerprint-trend" id="fingerprintTrendBadge">
+                <span id="fingerprintTrendIcon">📈</span>
+                <span id="fingerprintTrendText">Early Trend</span>
+              </div>
+            </div>
+
+            <div class="fingerprint-metrics-grid">
+              <div class="fp-metric-box">
+                <div class="fp-metric-top">
+                  <span class="fp-metric-label">Alignment</span>
+                  <span class="fp-metric-val" id="fpAlignmentVal">--</span>
+                </div>
+                <div class="fp-meter-bar"><div class="fp-meter-fill" id="fpAlignmentFill" style="width: 0%;"></div></div>
+                <span class="fp-metric-sub">Knee stack &amp; angles</span>
+              </div>
+
+              <div class="fp-metric-box">
+                <div class="fp-metric-top">
+                  <span class="fp-metric-label">Stability</span>
+                  <span class="fp-metric-val" id="fpStabilityVal">--</span>
+                </div>
+                <div class="fp-meter-bar"><div class="fp-meter-fill" id="fpStabilityFill" style="width: 0%;"></div></div>
+                <span class="fp-metric-sub">Stillness during hold</span>
+              </div>
+
+              <div class="fp-metric-box">
+                <div class="fp-metric-top">
+                  <span class="fp-metric-label">Control</span>
+                  <span class="fp-metric-val" id="fpControlVal">--</span>
+                </div>
+                <div class="fp-meter-bar"><div class="fp-meter-fill" id="fpControlFill" style="width: 0%;"></div></div>
+                <span class="fp-metric-sub">Time inside posture</span>
+              </div>
+
+              <div class="fp-metric-box">
+                <div class="fp-metric-top">
+                  <span class="fp-metric-label">Consistency</span>
+                  <span class="fp-metric-val" id="fpConsistencyVal">--</span>
+                </div>
+                <div class="fp-meter-bar"><div class="fp-meter-fill" id="fpConsistencyFill" style="width: 0%;"></div></div>
+                <span class="fp-metric-sub">Cross-session repeatability</span>
+              </div>
+            </div>
+
+            <div class="fingerprint-footer">
+              <div class="fp-footer-col">
+                <span class="fp-footer-tag">Primary Weakness / Opportunity</span>
+                <strong id="fpWeaknessText">Analyzing posture...</strong>
+              </div>
+              <div class="fp-footer-col">
+                <span class="fp-footer-tag">Recommended Next Focus</span>
+                <strong id="fpNextSessionText">Complete your first practice</strong>
+              </div>
+            </div>
+          </div>
+
           <!-- Plain-Language Dynamic Insight -->
           <div class="insight-banner">
             <div class="insight-icon">💡</div>
@@ -361,9 +459,10 @@
                 <tr>
                   <th>Date &amp; Time</th>
                   <th>Pose</th>
-                  <th>Baseline</th>
-                  <th>Best Score</th>
-                  <th>Improvement</th>
+                  <th>Alignment</th>
+                  <th>Stability</th>
+                  <th>Control</th>
+                  <th>Change</th>
                   <th>Focus Area</th>
                 </tr>
               </thead>
