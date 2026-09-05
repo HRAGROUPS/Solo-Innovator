@@ -15,6 +15,43 @@ const views = {
 const navPracticeBtn = document.getElementById('navPracticeBtn');
 const navProgressBtn = document.getElementById('navProgressBtn');
 const navProfileBtn = document.getElementById('navProfileBtn');
+const voiceCoachToggleBtn = document.getElementById('voiceCoachToggleBtn');
+const voiceIcon = document.getElementById('voiceIcon');
+const voiceStatusText = document.getElementById('voiceStatusText');
+
+// Voice Coach State (Web Speech API)
+let isVoiceCoachEnabled = true;
+let lastSpokenText = '';
+let lastSpokenTimestamp = 0;
+
+function speakCoachCue(text) {
+  if (!isVoiceCoachEnabled || !('speechSynthesis' in window)) return;
+  const now = Date.now();
+  // Prevent duplicate spoken cues within 5 seconds
+  if (text === lastSpokenText && now - lastSpokenTimestamp < 5000) return;
+  // Prevent any spoken cue if another was spoken in last 3 seconds
+  if (now - lastSpokenTimestamp < 3000) return;
+
+  try {
+    window.speechSynthesis.cancel(); // cancel previous unfinished queue
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95; // calm, mindful pacing
+    utterance.pitch = 1.0;
+    window.speechSynthesis.speak(utterance);
+    lastSpokenText = text;
+    lastSpokenTimestamp = now;
+  } catch (e) {
+    console.warn('Speech synthesis error:', e);
+  }
+}
+
+if (voiceCoachToggleBtn) {
+  voiceCoachToggleBtn.addEventListener('click', () => {
+    isVoiceCoachEnabled = !isVoiceCoachEnabled;
+    voiceIcon.textContent = isVoiceCoachEnabled ? '🔊' : '🔇';
+    voiceStatusText.textContent = isVoiceCoachEnabled ? 'ON' : 'OFF';
+  });
+}
 
 // Onboarding elements
 const onboardingForm = document.getElementById('onboardingForm');
@@ -184,8 +221,20 @@ function switchView(viewName) {
   }
 }
 
-// --- Dynamic Explanation Logic ---
+// --- Dynamic Explanation & Adaptive Difficulty Logic ---
 function updateWhyExplanation(level) {
+  const sessions = getStoredSessions();
+  const hasHistory = sessions.length > 0;
+  const latestSession = hasHistory ? sessions[sessions.length - 1] : null;
+  const recentScore = latestSession ? latestSession.afterScore : 70;
+
+  // Adaptive difficulty adjustment based on past performance
+  if (recentScore >= 82) {
+    whyExplanationText.innerHTML = 
+      `<strong>Adaptive Progression:</strong> Based on your strong alignment score (<strong>${recentScore}/100</strong>) in your last session, today's session advances to sustained endurance: focus on deepening your front thigh parallel to the floor while maintaining steady breath.`;
+    return;
+  }
+
   if (level === 'advanced') {
     whyExplanationText.textContent = 
       "For advanced practice, we're focusing on micro-adjustments: maintaining a clean 90° front knee bend while stabilizing the shoulder horizontal line to maximize hip openness and core engagement.";
@@ -367,6 +416,7 @@ function handleLowConfidence() {
   feedbackIcon.textContent = '👤';
   feedbackText.textContent = 'Step fully into the camera frame';
   feedbackSub.textContent = 'Position yourself so your full body is visible for accurate tracking';
+  speakCoachCue('Please step fully into the camera frame.');
 }
 
 function handleNoPerson() {
@@ -441,6 +491,7 @@ function handlePoseAnalysis(analysis) {
         feedbackIcon.textContent = '✨';
         feedbackText.textContent = 'Good alignment! Keep holding steady.';
         feedbackSub.textContent = 'Front knee stacked nicely over ankle with level shoulders.';
+        speakCoachCue('Good alignment. Keep holding steady.');
 
         // Capture corrected "After" score
         if (baselineBeforeScore !== null) {
@@ -467,6 +518,7 @@ function handlePoseAnalysis(analysis) {
         feedbackSub.textContent = analysis.frontKneeAngle > 108 
           ? 'Deepen the front lunge slightly toward 90°.' 
           : 'Ease back slightly so your knee does not push past your toes.';
+        speakCoachCue('Try keeping your front knee aligned with your ankle.');
 
         // Capture "Before" score at moment warning appears
         if (baselineBeforeScore === null) {
