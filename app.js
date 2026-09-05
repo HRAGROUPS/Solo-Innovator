@@ -121,6 +121,13 @@ function getStoredSessions() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SESSIONS);
     let sessions = raw ? JSON.parse(raw) : [];
+
+    // Validate that sessions is an array with valid records
+    if (!Array.isArray(sessions)) {
+      sessions = [];
+    } else {
+      sessions = sessions.filter(s => s && typeof s === 'object' && s.afterScore !== undefined);
+    }
     
     // Seed 2 realistic demo sessions if fewer than 2 exist
     if (!sessions || sessions.length < 2) {
