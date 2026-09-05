@@ -271,8 +271,15 @@ body {
   color: #e9d5ff;
 }
 
-.btn-finish:hover {
-  background-color: #3b0764;
+.btn:focus-visible,
+.nav-btn:focus-visible,
+.nav-btn-icon:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+.btn:active {
+  transform: scale(0.98);
 }
 
 /* Session Prep Card */
