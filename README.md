@@ -102,6 +102,34 @@ Open your browser and navigate to:
 http://localhost:3000
 ```
 
+## 🧪 Hackathon Judge Verification Runbook
+
+To test and verify the complete MVP end-to-end:
+
+1. **Launch App**: Open `http://localhost:3000` (or your static host).
+2. **Onboarding Screen**:
+   - Enter your name (e.g. `Maya`), select your goal and experience level (`Beginner`).
+   - Click **"Continue to Today's Session"**.
+3. **Session Screen**:
+   - Observe the dynamic `"Why This Session For You"` card explaining beginner alignment.
+   - Click **"Start Camera & Practice"**.
+4. **Live Pose Tracking**:
+   - Allow camera permissions.
+   - Stand back until your body is in the frame.
+   - Observe the live neon skeleton tracking your joints smoothly at ~30 FPS.
+5. **Warrior II Stance Detection**:
+   - Step into Warrior II (bend front knee, extend arms horizontally).
+   - Observe the **Front Knee Angle** and **Shoulder Tilt** updating dynamically in the HUD and directly on the canvas near your front knee.
+6. **Alignment Feedback & Debounce**:
+   - Straighten your front knee slightly ($>110°$): Observe the debounced amber warning: *"Try keeping your front knee aligned with your ankle"*. Notice your baseline score is captured.
+   - Correct your knee bend back to ~90°: Observe the green confirmation: *"Good alignment! Keep holding steady"* and the dynamic badge: *"Movement quality improved by +X pts"*.
+7. **Session Summary**:
+   - Click **"End Session & View Summary"** (or press `ESC`).
+   - Review your measured **Initial Score**, **Corrected Score**, and **Improvement Delta**.
+8. **Progress Analytics**:
+   - Click **"View Progress History & Chart"**.
+   - Review the Chart.js line graph and plain-language insight derived from your actual stored sessions.
+
 ---
 
 ## 🔒 Privacy & Wellness Disclaimer
