@@ -312,10 +312,13 @@ function onPoseResults(results) {
   canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
   if (results.poseLandmarks && results.poseLandmarks.length > 0) {
-    // Draw skeleton connectors
+    canvasCtx.lineCap = 'round';
+    canvasCtx.lineJoin = 'round';
+
+    // Draw skeleton connectors with clean stroke
     drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {
       color: '#00F0FF',
-      lineWidth: 3.5,
+      lineWidth: 3,
     });
 
     // Draw landmarks
