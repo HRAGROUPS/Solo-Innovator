@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adaptive Yoga Coach</title>
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- MediaPipe Pose and Utilities via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <header class="navbar">
+      <h1>Adaptive Yoga Coach</h1>
+    </header>
+    <main>
+      <div class="viewport-wrapper">
+        <video id="webcam" playsinline style="display: none;"></video>
+        <canvas id="output_canvas" width="640" height="480"></canvas>
+        <div id="cameraPrompt" class="viewport-overlay">
+          <button id="startCameraBtn" class="btn btn-primary">Start Camera</button>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

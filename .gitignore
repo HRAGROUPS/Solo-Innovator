@@ -1,0 +1,12 @@
+# OS & Editor
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+*.swp
+
+# Environment & Dependencies
+node_modules/
+.venv/
+__pycache__/
