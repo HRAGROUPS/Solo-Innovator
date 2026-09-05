@@ -3,30 +3,383 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Adaptive Yoga Coach</title>
+  <title>Adaptive Yoga Coach — Mindful Alignment Practice</title>
   <link rel="stylesheet" href="style.css">
-  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
   <!-- MediaPipe Pose and Utilities via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+  <!-- Chart.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
 </head>
 <body>
   <div class="app-layout">
+    <!-- Top Navigation -->
     <header class="navbar">
-      <h1>Adaptive Yoga Coach</h1>
-    </header>
-    <main>
-      <div class="viewport-wrapper">
-        <video id="webcam" playsinline style="display: none;"></video>
-        <canvas id="output_canvas" width="640" height="480"></canvas>
-        <div id="cameraPrompt" class="viewport-overlay">
-          <button id="startCameraBtn" class="btn btn-primary">Start Camera</button>
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a5 5 0 0 0-5 5v1a5 5 0 0 0 10 0V7a5 5 0 0 0-5-5Z"/>
+            <path d="M6 14v4a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-4"/>
+            <path d="m3 11 3 3"/>
+            <path d="m21 11-3 3"/>
+          </svg>
+        </div>
+        <div>
+          <span class="brand-name">Adaptive Yoga Coach</span>
+          <span class="brand-tagline">Personalized Movement &amp; Alignment</span>
         </div>
       </div>
+
+      <nav class="nav-links">
+        <button id="navPracticeBtn" class="nav-btn active">Practice</button>
+        <button id="navProgressBtn" class="nav-btn">My Progress</button>
+        <button id="navProfileBtn" class="nav-btn-icon" title="Edit Profile">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </button>
+      </nav>
+    </header>
+
+    <main class="content-container">
+
+      <!-- VIEW 1: ONBOARDING SCREEN -->
+      <section id="onboardingView" class="view-panel">
+        <div class="card onboarding-card">
+          <div class="card-intro">
+            <span class="pill-badge">Welcome</span>
+            <h2>Personalize Your Yoga Practice</h2>
+            <p>Tell us a little about your goals so we can calibrate your Warrior II alignment guidance.</p>
+          </div>
+
+          <form id="onboardingForm" class="form-grid">
+            <div class="form-group">
+              <label for="userName">Your Name</label>
+              <input type="text" id="userName" placeholder="e.g. Maya" required maxlength="32">
+            </div>
+
+            <div class="form-group">
+              <label for="userGoal">Primary Focus Goal</label>
+              <select id="userGoal" required>
+                <option value="flexibility">Flexibility &amp; Joint Mobility</option>
+                <option value="strength">Lower Body Strength &amp; Stamina</option>
+                <option value="stress">Stress Relief &amp; Calming Movement</option>
+                <option value="balance" selected>Balance &amp; Posture Stability</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="userExperience">Experience Level</label>
+              <select id="userExperience" required>
+                <option value="beginner" selected>Beginner (Building foundations)</option>
+                <option value="intermediate">Intermediate (Refining alignment)</option>
+                <option value="advanced">Advanced (Deep holds &amp; precision)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="userDuration">Preferred Hold Duration</label>
+              <select id="userDuration" required>
+                <option value="1">1 minute quick check</option>
+                <option value="2" selected>2 minutes standard hold</option>
+                <option value="3">3 minutes endurance hold</option>
+              </select>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary btn-large">
+                Continue to Today's Session
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- VIEW 2: TODAY'S SESSION PREVIEW -->
+      <section id="sessionPrepView" class="view-panel" style="display: none;">
+        <div class="card session-card">
+          <div class="session-hero">
+            <div class="session-badge">Today's Focus Pose</div>
+            <h2>Warrior II <span class="sanskrit">Virabhadrasana II</span></h2>
+            <p class="session-subtitle">Build grounded leg strength, hip flexibility, and open shoulder alignment.</p>
+          </div>
+
+          <div class="why-box">
+            <div class="why-header">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+              </svg>
+              <strong>Why This Session For You</strong>
+            </div>
+            <p id="whyExplanationText">
+              <!-- Dynamically populated from user profile logic -->
+              Since you're a beginner, we're starting with a moderate hold to build joint alignment awareness before deepening the lunge.
+            </p>
+          </div>
+
+          <div class="key-points-grid">
+            <div class="point-item">
+              <span class="point-num">01</span>
+              <div>
+                <h4>Front Knee Stack</h4>
+                <p>Keep front knee bent near 90°, directly above your ankle.</p>
+              </div>
+            </div>
+            <div class="point-item">
+              <span class="point-num">02</span>
+              <div>
+                <h4>Level Torso &amp; Arms</h4>
+                <p>Extend arms parallel to the ground with relaxed shoulders.</p>
+              </div>
+            </div>
+            <div class="point-item">
+              <span class="point-num">03</span>
+              <div>
+                <h4>Grounded Back Leg</h4>
+                <p>Press the back foot firmly down with a straight knee.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="prep-actions">
+            <button id="startPracticeBtn" class="btn btn-primary btn-large">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 7 16 12 23 17 23 7z"/><rect width="14" height="12" x="1" y="6" rx="2" ry="2"/>
+              </svg>
+              Start Camera &amp; Practice
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 3: LIVE CAMERA & POSE TRACKING -->
+      <section id="cameraView" class="view-panel" style="display: none;">
+        <div class="card live-card">
+          <!-- Live Practice Top Bar -->
+          <div class="live-header">
+            <div class="pose-title-block">
+              <h3>Warrior II Alignment</h3>
+              <div class="live-pill" id="livePill">
+                <span class="pulse-dot"></span>
+                <span id="livePillText">Live Tracking</span>
+              </div>
+            </div>
+
+            <!-- Movement Quality Score Widget -->
+            <div class="score-widget">
+              <div class="score-circle" id="scoreCircle">
+                <span class="score-number" id="liveScoreDisplay">--</span>
+                <span class="score-unit">/100</span>
+              </div>
+              <div class="score-meta">
+                <span class="score-title">Movement Quality</span>
+                <span class="score-grade" id="scoreGrade">Stand in frame</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Debounced Feedback Toast Bar -->
+          <div id="feedbackBanner" class="feedback-banner state-neutral">
+            <div class="feedback-icon" id="feedbackIcon">🧘</div>
+            <div class="feedback-content">
+              <div class="feedback-text" id="feedbackText">Step into the camera frame to begin alignment tracking</div>
+              <div class="feedback-sub" id="feedbackSub">Ensure your full body from shoulders to ankles is visible</div>
+            </div>
+            <div id="deltaBadge" class="delta-badge" style="display: none;">
+              <span id="deltaBadgeText">+0 pts</span>
+            </div>
+          </div>
+
+          <!-- Video & Canvas Viewport -->
+          <div class="viewport-wrapper">
+            <video id="webcam" playsinline style="display: none;"></video>
+            <canvas id="output_canvas" width="640" height="480"></canvas>
+
+            <!-- Pre-camera loading/prompt overlay -->
+            <div id="cameraPrompt" class="viewport-overlay" style="display: none;">
+              <div class="prompt-box">
+                <div class="prompt-icon">📷</div>
+                <h3>Camera Paused</h3>
+                <p>Click below to resume pose analysis.</p>
+                <button id="resumeCameraBtn" class="btn btn-primary">Resume Camera</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live HUD Metrics -->
+          <div class="hud-bar">
+            <div class="hud-item">
+              <span class="hud-label">Front Knee</span>
+              <span class="hud-val" id="frontKneeAngleDisplay">--°</span>
+              <span class="hud-target">target ~90°</span>
+            </div>
+            <div class="hud-item">
+              <span class="hud-label">Shoulder Tilt</span>
+              <span class="hud-val" id="shoulderTiltDisplay">--°</span>
+              <span class="hud-target">target &lt;8°</span>
+            </div>
+            <div class="hud-item">
+              <span class="hud-label">Detected Stance</span>
+              <span class="hud-val" id="stanceDisplay">Detecting...</span>
+              <span class="hud-target" id="frontLegLabel">auto-detect</span>
+            </div>
+            <div class="hud-item">
+              <span class="hud-label">Practice Time</span>
+              <span class="hud-val" id="sessionTimer">00:00</span>
+              <span class="hud-target" id="timerGoalLabel">Goal: 2m</span>
+            </div>
+          </div>
+
+          <!-- Control Actions -->
+          <div class="live-actions">
+            <button id="endSessionBtn" class="btn btn-finish">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              </svg>
+              End Session &amp; View Summary
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 4: SESSION SUMMARY -->
+      <section id="summaryView" class="view-panel" style="display: none;">
+        <div class="card summary-card">
+          <div class="summary-header">
+            <div class="summary-check">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+            </div>
+            <h2>Session Completed!</h2>
+            <p id="summarySubtitle">Great job dedicating time to mindful Warrior II alignment.</p>
+          </div>
+
+          <!-- Real Measured Before / After / Delta Grid -->
+          <div class="results-grid">
+            <div class="result-card">
+              <span class="result-label">Initial Score (Before)</span>
+              <span class="result-number" id="sumBeforeScore">--</span>
+              <span class="result-hint">Initial alignment capture</span>
+            </div>
+
+            <div class="result-card highlight">
+              <span class="result-label">Corrected Score (After)</span>
+              <span class="result-number" id="sumAfterScore">--</span>
+              <span class="result-hint">Peak corrected posture</span>
+            </div>
+
+            <div class="result-card delta-card">
+              <span class="result-label">Measured Improvement</span>
+              <span class="result-delta" id="sumDeltaScore">+0</span>
+              <span class="result-hint">Actual measured change</span>
+            </div>
+
+            <div class="result-card">
+              <span class="result-label">Key Focus Area</span>
+              <span class="result-focus">Front Knee Alignment</span>
+              <span class="result-hint">Knee stacked over ankle</span>
+            </div>
+          </div>
+
+          <div class="summary-actions">
+            <button id="viewProgressFromSummaryBtn" class="btn btn-primary btn-large">
+              View Progress History &amp; Chart
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+              </svg>
+            </button>
+            <button id="practiceAgainBtn" class="btn btn-secondary">
+              Practice Another Hold
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 5: PROGRESS SCREEN & CHART.JS -->
+      <section id="progressView" class="view-panel" style="display: none;">
+        <div class="card progress-card">
+          <div class="progress-header">
+            <div>
+              <span class="pill-badge">Analytics</span>
+              <h2>Your Alignment Progress</h2>
+              <p>Tracking your movement quality and alignment score trajectory over time.</p>
+            </div>
+            <button id="newSessionBtn" class="btn btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              Start New Practice
+            </button>
+          </div>
+
+          <!-- Plain-Language Dynamic Insight -->
+          <div class="insight-banner">
+            <div class="insight-icon">💡</div>
+            <div class="insight-body">
+              <span class="insight-title">Session Insight</span>
+              <p id="progressInsightText">
+                Analyzing your practice history to generate alignment insights...
+              </p>
+            </div>
+          </div>
+
+          <!-- Chart.js Container -->
+          <div class="chart-wrapper">
+            <canvas id="progressChart"></canvas>
+          </div>
+
+          <!-- History Table Summary -->
+          <div class="history-table-container">
+            <h3>Recent Sessions</h3>
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>Date &amp; Time</th>
+                  <th>Pose</th>
+                  <th>Baseline</th>
+                  <th>Best Score</th>
+                  <th>Improvement</th>
+                  <th>Focus Area</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
     </main>
+
+    <!-- Responsible Design Notices -->
+    <footer class="app-footer">
+      <div class="footer-notices">
+        <p class="privacy-note">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <strong>Privacy Guaranteed:</strong> Camera access is used solely for client-side live pose tracking. Video is never recorded, saved, or transmitted to any server. All processing runs locally in your browser.
+        </p>
+        <p class="medical-disclaimer">
+          <strong>Wellness Notice:</strong> This is a wellness and fitness companion, not a medical diagnostic tool. Practice mindfully within your comfortable range of motion.
+        </p>
+      </div>
+    </footer>
   </div>
+
   <script src="app.js"></script>
 </body>
 </html>
