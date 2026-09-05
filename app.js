@@ -761,6 +761,13 @@ navProfileBtn.addEventListener('click', () => {
   switchView('onboarding');
 });
 
+// Keyboard shortcut (ESC to end live session)
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && isCameraRunning) {
+    finishSession();
+  }
+});
+
 // --- Application Init ---
 window.addEventListener('DOMContentLoaded', () => {
   const profile = getUserProfile();
