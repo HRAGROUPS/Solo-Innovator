@@ -688,10 +688,19 @@ function renderProgressView() {
         legend: {
           labels: {
             color: '#f8fafc',
-            font: { family: 'Plus Jakarta Sans', size: 12 }
+            font: { family: 'Plus Jakarta Sans', size: 12, weight: 600 },
+            padding: 16,
+            boxWidth: 12,
+            usePointStyle: true,
           }
         },
         tooltip: {
+          backgroundColor: '#1e293b',
+          titleColor: '#f8fafc',
+          bodyColor: '#94a3b8',
+          borderColor: '#334155',
+          borderWidth: 1,
+          padding: 10,
           callbacks: {
             label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw} / 100`
           }
