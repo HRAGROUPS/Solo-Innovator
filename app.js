@@ -194,6 +194,7 @@ function updateWhyExplanation(level) {
 
 // --- Math Helpers ---
 function calculateAngle2D(p1, p2, p3) {
+  if (!p1 || !p2 || !p3) return 0;
   const v1x = p1.x - p2.x;
   const v1y = p1.y - p2.y;
   const v2x = p3.x - p2.x;
@@ -205,7 +206,8 @@ function calculateAngle2D(p1, p2, p3) {
 
   if (mag1 === 0 || mag2 === 0) return 0;
 
-  const cosVal = Math.max(-1, Math.min(1, dot / (mag1 * mag2)));
+  // Strict clamp to [-1.0, 1.0] to safeguard against float precision domain errors in Math.acos
+  const cosVal = Math.max(-1.0, Math.min(1.0, dot / (mag1 * mag2)));
   return Math.round((Math.acos(cosVal) * 180) / Math.PI);
 }
 
