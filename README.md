@@ -14,6 +14,33 @@ Unlike conventional fitness apps that stream pre-recorded videos without feedbac
 
 ---
 
+## 📐 Posture Criteria & Angle Specifications
+
+| Metric | Target Optimal | Acceptable Range | Feedback Threshold |
+| :--- | :---: | :---: | :--- |
+| **Front Knee Angle** | `90°` | `85° – 105°` | Outside `82° – 108°` triggers debounced knee stack reminder |
+| **Rear Leg Angle** | `180°` | `150° – 180°` | `< 130°` indicates non-Warrior II stance |
+| **Shoulder Tilt** | `0°` | `< 8°` | `> 10°` triggers torso upright leveling prompt |
+| **Landmark Confidence** | `> 0.70` | `> 0.55` | `< 0.55` triggers "Step fully into frame" gating |
+
+```mermaid
+graph TD
+  A[Webcam Feed 30 FPS] --> B[MediaPipe Pose CDN]
+  B --> C[33 Key Landmarks Coordinates]
+  C --> D{Confidence Visibility Check}
+  D -- Visibility < 0.55 --> E[Prompt: Step Fully Into Frame]
+  D -- Visibility >= 0.55 --> F[Calculate 2D Vector Angles]
+  F --> G[Front Knee: Hip-Knee-Ankle]
+  F --> H[Shoulder Line Horizontal Tilt]
+  G & H --> I[Weighted Movement Quality Score 0-100]
+  I --> J{Debounce 5 Frames}
+  J -- Out of Range --> K[Snapshot 'Before' Score + Alert]
+  J -- Corrected in Range --> L[Snapshot 'After' Score + Delta Badge]
+  L --> M[Session Summary & Chart.js LocalStorage]
+```
+
+---
+
 ## ⚡ Key Features
 
 1. **Personalized Onboarding & Dynamic Session Recommendation**:
