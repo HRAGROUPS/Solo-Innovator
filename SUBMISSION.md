@@ -6,7 +6,7 @@
 **Challenge:** AI-Powered Personalized Yoga & Wellness Companion  
 **Difficulty:** Extreme  
 **Repository:** [https://github.com/HRAGROUPS/Solo-Innovator.git](https://github.com/HRAGROUPS/Solo-Innovator.git)  
-**Live Demo:** Localhost:3000 / Static Web Host  
+**Live Demo:** [https://adaptiveyoga.netlify.app/](https://adaptiveyoga.netlify.app/)  
 
 ---
 

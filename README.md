@@ -1,8 +1,10 @@
 # Adaptive Yoga Coach — AI-Powered Personalized Yoga & Wellness Companion
 
 > **Hackathon:** HRA Groups Solo Innovator 2026  
-> **Author:** Solo Innovator Track  
+> **Author:** Motipalli Tej Raghuveer (Solo Innovator Track)  
 > **Pose Analyzed:** Warrior II (*Virabhadrasana II*)  
+> **Live Web App:** [https://adaptiveyoga.netlify.app/](https://adaptiveyoga.netlify.app/)  
+> **Repository:** [https://github.com/HRAGROUPS/Solo-Innovator](https://github.com/HRAGROUPS/Solo-Innovator)  
 
 ---
 
@@ -156,7 +158,7 @@ Upgrade 3 elevates the companion from a posture detector to an **interpreting, e
 
 To test and verify the complete companion end-to-end:
 
-1. **Launch App**: Open `http://localhost:3000` (or run `node test_upgrade3.js` for unit verification).
+1. **Launch App**: Open the live application directly at **[https://adaptiveyoga.netlify.app/](https://adaptiveyoga.netlify.app/)** (or run locally at `http://localhost:3000` / run automated tests via `node test_upgrade3.js`).
 2. **Onboarding Screen**:
    - Enter your name (e.g. `Maya`), select your goal and experience level (`Beginner`).
    - Click **"Continue to Today's Session"**.
