@@ -133,6 +133,50 @@ const fingerprintTrendIcon = document.getElementById('fingerprintTrendIcon');
 const fingerprintTrendText = document.getElementById('fingerprintTrendText');
 const fpWeaknessText = document.getElementById('fpWeaknessText');
 const fpNextSessionText = document.getElementById('fpNextSessionText');
+const devDebugToggleBtn = document.getElementById('devDebugToggleBtn');
+const devDebugPanel = document.getElementById('devDebugPanel');
+const closeDevDebugBtn = document.getElementById('closeDevDebugBtn');
+
+// Live Breakdown & Coach Tags
+const bdKneeAngleVal = document.getElementById('bdKneeAngleVal');
+const bdKneeStackVal = document.getElementById('bdKneeStackVal');
+const bdShoulderVal = document.getElementById('bdShoulderVal');
+const bdPrimaryOppVal = document.getElementById('bdPrimaryOppVal');
+const coachPhaseTag = document.getElementById('coachPhaseTag');
+const coachLevelTag = document.getElementById('coachLevelTag');
+
+// Summary Coaching Story Elements
+const coachingStoryCard = document.getElementById('coachingStoryCard');
+const storyBeforeScore = document.getElementById('storyBeforeScore');
+const storyBeforeDetail = document.getElementById('storyBeforeDetail');
+const storyAfterScore = document.getElementById('storyAfterScore');
+const storyAfterDetail = document.getElementById('storyAfterDetail');
+const storyDeltaScore = document.getElementById('storyDeltaScore');
+const storyDeltaDetail = document.getElementById('storyDeltaDetail');
+const storyInsightText = document.getElementById('storyInsightText');
+const storyNextStepText = document.getElementById('storyNextStepText');
+
+// Practice Fingerprint Explainability Elements
+const fpMeaningBox = document.getElementById('fpMeaningBox');
+const fpMeaningText = document.getElementById('fpMeaningText');
+
+// Developer Telemetry Elements
+const dbgPose = document.getElementById('dbgPose');
+const dbgConfidence = document.getElementById('dbgConfidence');
+const dbgKneeAngle = document.getElementById('dbgKneeAngle');
+const dbgOffset = document.getElementById('dbgOffset');
+const dbgShoulder = document.getElementById('dbgShoulder');
+const dbgScore = document.getElementById('dbgScore');
+const dbgState = document.getElementById('dbgState');
+const dbgCoachLevel = document.getElementById('dbgCoachLevel');
+const dbgPhase = document.getElementById('dbgPhase');
+const dbgPrimaryIssue = document.getElementById('dbgPrimaryIssue');
+const dbgFpAlign = document.getElementById('dbgFpAlign');
+const dbgFpStab = document.getElementById('dbgFpStab');
+const dbgFpCtrl = document.getElementById('dbgFpCtrl');
+const dbgAdaptiveDiff = document.getElementById('dbgAdaptiveDiff');
+const dbgAdaptiveFocus = document.getElementById('dbgAdaptiveFocus');
+
 let progressChartInstance = null;
 
 // --- State Variables ---
@@ -274,6 +318,26 @@ function saveSessionRecord(record) {
   localStorage.setItem(STORAGE_KEYS.SESSIONS_V2, JSON.stringify(sessions));
 }
 
+// --- Upgrade 3: AI Coach & Movement Intelligence State ---
+let sessionState = {
+  phase: 'preparing', // 'preparing' | 'entering' | 'correcting' | 'holding' | 'improving' | 'completing'
+  validFrames: 0,
+  consecutiveGoodFrames: 0,
+  consecutiveIssueFrames: 0,
+  milestonesTriggered: {
+    firstPose: false,
+    stableHold5s: false,
+    milestone15s: false,
+    milestone30s: false,
+    improvementNoted: false,
+  },
+  lastIssueCategory: null,
+  lastIssueMetricValue: null,
+  lastCorrectionReported: null,
+  phraseRotationIndex: 0,
+  currentLevel: 1,
+};
+
 // --- Session State Reset (Ensures complete isolation between practices) ---
 function resetSessionState() {
   validFrameCount = 0;
@@ -296,6 +360,25 @@ function resetSessionState() {
     kneeAngle: 0,
     shoulder: 0,
     good: 0,
+  };
+
+  sessionState = {
+    phase: 'preparing',
+    validFrames: 0,
+    consecutiveGoodFrames: 0,
+    consecutiveIssueFrames: 0,
+    milestonesTriggered: {
+      firstPose: false,
+      stableHold5s: false,
+      milestone15s: false,
+      milestone30s: false,
+      improvementNoted: false,
+    },
+    lastIssueCategory: null,
+    lastIssueMetricValue: null,
+    lastCorrectionReported: null,
+    phraseRotationIndex: 0,
+    currentLevel: 1,
   };
 
   if (deltaBadge) {
@@ -323,6 +406,14 @@ function resetSessionState() {
     stanceDisplay.style.color = '#64748b';
   }
   if (frontLegLabel) frontLegLabel.textContent = 'auto-detect';
+
+  // Live breakdown & coach tags
+  if (bdKneeAngleVal) bdKneeAngleVal.textContent = '--';
+  if (bdKneeStackVal) bdKneeStackVal.textContent = '--';
+  if (bdShoulderVal) bdShoulderVal.textContent = '--';
+  if (bdPrimaryOppVal) bdPrimaryOppVal.textContent = 'Calibrating stance';
+  if (coachPhaseTag) coachPhaseTag.textContent = 'Preparing';
+  if (coachLevelTag) coachLevelTag.textContent = 'Level 1 · Immediate';
 
   if (feedbackBanner) feedbackBanner.className = 'feedback-banner state-neutral';
   if (feedbackIcon) feedbackIcon.textContent = '🧘';
@@ -486,6 +577,465 @@ function analyzeWarriorIIPose(landmarks) {
   };
 }
 
+// ============================================================
+// UPGRADE 3: INTELLIGENT AI COACH & RICHER MOVEMENT INTELLIGENCE
+// ============================================================
+
+// --- Movement Quality States (Descriptive, Mindful, strictly non-medical) ---
+function getMovementQualityState(score) {
+  if (score >= 90) {
+    return { label: 'Excellent control', grade: 'Optimal', color: '#10b981' };
+  } else if (score >= 80) {
+    return { label: 'Strong', grade: 'Strong', color: '#10b981' };
+  } else if (score >= 70) {
+    return { label: 'Developing', grade: 'Developing', color: '#38bdf8' };
+  } else if (score >= 60) {
+    return { label: 'Needs attention', grade: 'Fair', color: '#f59e0b' };
+  } else {
+    return { label: 'Needs correction', grade: 'Adjusting', color: '#ef4444' };
+  }
+}
+
+// --- Coaching Memory Model (Extracts continuity across real sessions) ---
+function deriveCoachingMemory(sessions, fingerprint) {
+  if (!sessions || sessions.length === 0) {
+    return {
+      totalSessions: 0,
+      previousWeakness: null,
+      previousStrength: null,
+      recentTrend: 'Baseline Formed',
+      lastSessionFocus: null,
+      lastSessionScore: null,
+      recentAverageScore: null,
+    };
+  }
+
+  const lastSession = sessions[sessions.length - 1];
+  const lastSessionScore = lastSession.afterScore ?? (lastSession.metrics?.alignment ?? 70);
+  const lastSessionFocus = lastSession.focusArea || null;
+
+  let previousStrength = 'Control';
+  const fp = fingerprint || {};
+  if (fp.alignment >= fp.stability && fp.alignment >= fp.control) {
+    previousStrength = 'Alignment';
+  } else if (fp.stability >= fp.alignment && fp.stability >= fp.control) {
+    previousStrength = 'Stability';
+  } else {
+    previousStrength = 'Control';
+  }
+
+  const recentScores = sessions.slice(-3).map(s => s.afterScore ?? 70);
+  const recentAverageScore = Math.round(recentScores.reduce((a, b) => a + b, 0) / recentScores.length);
+
+  return {
+    totalSessions: sessions.length,
+    previousWeakness: fp.weakness || 'Knee & Ankle Alignment',
+    previousStrength,
+    recentTrend: fp.trend || 'Stable',
+    lastSessionFocus,
+    lastSessionScore,
+    recentAverageScore,
+  };
+}
+
+// --- Coaching Priority Engine (Selects exactly ONE primary actionable opportunity) ---
+function evaluatePrimaryCoachingOpportunity(analysis, currentStability) {
+  if (!analysis || !analysis.confidenceSufficient) {
+    return {
+      category: 'camera_low_confidence',
+      isIssue: true,
+      priorityRank: 1,
+      opportunityLabel: 'Camera Visibility',
+      offsetPct: 0,
+      kneeAngle: 0,
+      tilt: 0,
+    };
+  }
+
+  // Priority 2: Knee/Ankle alignment (offset > 12%)
+  if (!analysis.kneeStacked) {
+    return {
+      category: 'knee_ankle',
+      isIssue: true,
+      priorityRank: 2,
+      opportunityLabel: 'Knee & Ankle Alignment',
+      offsetPct: analysis.kneeAnkleOffsetPct,
+      kneeAngle: analysis.frontKneeAngle,
+      tilt: analysis.shoulderTilt,
+    };
+  }
+
+  // Priority 3: Knee angle depth issue
+  if (analysis.frontKneeAngle > 105) {
+    return {
+      category: 'knee_open',
+      isIssue: true,
+      priorityRank: 3,
+      opportunityLabel: 'Front Knee Depth',
+      offsetPct: analysis.kneeAnkleOffsetPct,
+      kneeAngle: analysis.frontKneeAngle,
+      tilt: analysis.shoulderTilt,
+    };
+  }
+
+  if (analysis.frontKneeAngle < 82) {
+    return {
+      category: 'knee_closed',
+      isIssue: true,
+      priorityRank: 3,
+      opportunityLabel: 'Front Knee Angle Control',
+      offsetPct: analysis.kneeAnkleOffsetPct,
+      kneeAngle: analysis.frontKneeAngle,
+      tilt: analysis.shoulderTilt,
+    };
+  }
+
+  // Priority 4: Shoulder line stability issue (tilt > 8°)
+  if (analysis.shoulderTilt > 8) {
+    return {
+      category: 'shoulder',
+      isIssue: true,
+      priorityRank: 4,
+      opportunityLabel: 'Shoulder Line Stability',
+      offsetPct: analysis.kneeAnkleOffsetPct,
+      kneeAngle: analysis.frontKneeAngle,
+      tilt: analysis.shoulderTilt,
+    };
+  }
+
+  // Priority 5: Temporal instability during hold (sway/displacement while aligned)
+  if (currentStability !== null && currentStability < 65 && validFrameCount > 20) {
+    return {
+      category: 'instability',
+      isIssue: true,
+      priorityRank: 5,
+      opportunityLabel: 'Hold Stillness & Grounding',
+      offsetPct: analysis.kneeAnkleOffsetPct,
+      kneeAngle: analysis.frontKneeAngle,
+      tilt: analysis.shoulderTilt,
+    };
+  }
+
+  // Priority 6: Optimal hold
+  return {
+    category: 'optimal_hold',
+    isIssue: false,
+    priorityRank: 6,
+    opportunityLabel: 'Steady Alignment Hold',
+    offsetPct: analysis.kneeAnkleOffsetPct,
+    kneeAngle: analysis.frontKneeAngle,
+    tilt: analysis.shoulderTilt,
+  };
+}
+
+// --- AI Coach Message Generator (Interprets Structured Measurements, NEVER Calculates Raw Geometry) ---
+function generateCoachMessage(context) {
+  const {
+    userProfile,
+    currentMetrics,
+    currentOpportunity,
+    sessionState,
+    coachingMemory,
+  } = context;
+
+  const experience = userProfile?.experience || 'beginner';
+  const goal = userProfile?.goal || 'balance';
+  const totalSessions = coachingMemory?.totalSessions || 0;
+  const rotIdx = sessionState.phraseRotationIndex || 0;
+
+  // Helper for deterministic rotation across phrase variations
+  const pick = (arr) => arr[rotIdx % arr.length];
+
+  let level = 1;
+  let levelLabel = 'Level 1 · Immediate';
+  let phase = sessionState.phase || 'holding';
+  let primary = '';
+  let supporting = '';
+  let speech = '';
+
+  // Case 1: Camera Confidence / Out of Frame
+  if (currentOpportunity.category === 'camera_low_confidence') {
+    level = 1;
+    levelLabel = 'Level 1 · Immediate';
+    phase = 'preparing';
+    primary = 'Step fully into the camera frame.';
+    supporting = 'Ensure your shoulders, hips, knees, and ankles are clearly visible in good lighting.';
+    speech = 'Please step fully into the camera frame.';
+    return { level, levelLabel, phase, primary, supporting, speech, opportunityLabel: 'Camera Visibility' };
+  }
+
+  // Case 2: Transition / Improvement Delta detected
+  const delta = (context.delta !== undefined) ? context.delta : (sessionState.delta !== undefined ? sessionState.delta : lastCalculatedDelta);
+  if (phase === 'improving' && delta !== null && delta > 0) {
+    level = 3;
+    levelLabel = 'Level 3 · Personalized';
+    const metricName = sessionState.lastIssueCategory === 'knee_ankle' ? 'knee alignment' : 'movement quality';
+    primary = `Nice correction! Your ${metricName} improved by +${delta} points.`;
+    supporting = `Great adjustment. Keep your position steady and maintain calm breathing.`;
+    speech = `Nice correction. Your ${metricName} improved by ${delta} points.`;
+    return { level, levelLabel, phase, primary, supporting, speech, opportunityLabel: currentOpportunity.opportunityLabel };
+  }
+
+  // Determine Level for ongoing practice:
+  // - If issue has persisted (> 8 frames), upgrade to Level 2 (Correction + Explanation)
+  // - If holding good form and has historical continuity (sessions >= 2), use Level 4 or Level 3
+  // - If holding good form in early sessions, use Level 3 (Personalized to goal)
+  // - Otherwise, Level 1 (Immediate correction)
+  if (currentOpportunity.isIssue) {
+    phase = 'correcting';
+    if (sessionState.consecutiveIssueFrames > 8) {
+      level = 2;
+      levelLabel = 'Level 2 · Explanatory';
+    } else {
+      level = 1;
+      levelLabel = 'Level 1 · Immediate';
+    }
+  } else {
+    phase = sessionState.validFrames <= 8 ? 'entering' : 'holding';
+    if (totalSessions >= 2 && sessionState.consecutiveGoodFrames > 25) {
+      level = 4;
+      levelLabel = 'Level 4 · Historical';
+    } else if (sessionState.consecutiveGoodFrames > 12) {
+      level = 3;
+      levelLabel = 'Level 3 · Personalized';
+    } else {
+      level = 1;
+      levelLabel = 'Level 1 · Immediate';
+    }
+  }
+
+  // --- Message Synthesis by Opportunity Category & Level ---
+  switch (currentOpportunity.category) {
+    case 'knee_ankle': {
+      const offset = currentOpportunity.offsetPct;
+      if (level === 1) {
+        if (experience === 'beginner') {
+          primary = pick([
+            'Bring your front knee gently back over your ankle.',
+            'Keep your front knee softly aligned over your ankle.',
+            'Center your front knee over your front ankle.'
+          ]);
+        } else if (experience === 'advanced') {
+          primary = pick([
+            'Align front knee directly over the ankle stack.',
+            'Eliminate lateral knee offset relative to the ankle line.',
+            'Stack the front tibia perpendicular to the floor.'
+          ]);
+        } else {
+          primary = pick([
+            'Bring your front knee back over your ankle.',
+            'Keep the front knee stacked over the ankle.',
+            'Adjust front knee inward toward the ankle line.'
+          ]);
+        }
+        supporting = `Camera-plane knee/ankle offset: ${offset}% (target ≤12%).`;
+        speech = primary;
+      } else {
+        // Level 2: Correction + Explanation
+        primary = 'Bring your front knee back over your ankle.';
+        supporting = `Your knee is drifting relative to your ankle stack (${offset}% offset). Stacking protects your joint line.`;
+        speech = `Bring your front knee back over your ankle. Your knee is drifting outward relative to your ankle.`;
+      }
+      break;
+    }
+
+    case 'knee_open': {
+      const angle = currentOpportunity.kneeAngle;
+      if (level === 1) {
+        if (experience === 'beginner') {
+          primary = pick([
+            'Bend your front knee a little deeper.',
+            'Gently lower your hips and bend the front knee.',
+            'Sink slightly deeper into your front leg.'
+          ]);
+        } else if (experience === 'advanced') {
+          primary = pick([
+            'Deepen the front lunge toward a true 90° thigh angle.',
+            'Lower pelvis to bring front femur parallel to floor.',
+            'Refine front knee flexion closer to 90°.'
+          ]);
+        } else {
+          primary = pick([
+            'Bend your front knee a little deeper.',
+            'Lower into the front knee bend toward 90°.',
+            'Deepen your front knee bend.'
+          ]);
+        }
+        supporting = `Front knee angle: ${angle}° (target ~90°).`;
+        speech = primary;
+      } else {
+        // Level 2: Correction + Explanation
+        primary = 'Bend your front knee a little deeper.';
+        supporting = `Current front knee angle is ${angle}°. Sinking closer toward 90° builds stamina and centers your center of gravity.`;
+        speech = `Bend your front knee a little deeper. Your knee angle is ${angle} degrees.`;
+      }
+      break;
+    }
+
+    case 'knee_closed': {
+      const angle = currentOpportunity.kneeAngle;
+      if (level === 1) {
+        if (experience === 'beginner') {
+          primary = 'Ease your front knee back slightly.';
+        } else if (experience === 'advanced') {
+          primary = 'Moderate knee flexion to restore a stable 90° joint angle.';
+        } else {
+          primary = 'Ease your front knee back slightly toward 90°.';
+        }
+        supporting = `Front knee angle: ${angle}° (target ~90°).`;
+        speech = 'Ease your front knee back slightly.';
+      } else {
+        primary = 'Ease your front knee back slightly.';
+        supporting = `Current knee bend is ${angle}°. Easing back slightly prevents over-compression while maintaining leg control.`;
+        speech = 'Ease your front knee back slightly. Maintain an open 90 degree angle.';
+      }
+      break;
+    }
+
+    case 'shoulder': {
+      const tilt = currentOpportunity.tilt;
+      if (level === 1) {
+        if (experience === 'beginner') {
+          primary = 'Level your shoulders and relax your arms.';
+        } else if (experience === 'advanced') {
+          primary = 'Align shoulders horizontally; keep torso plumb over the pelvis.';
+        } else {
+          primary = 'Level your shoulders parallel to the floor.';
+        }
+        supporting = `Shoulder tilt: ${tilt}° (target <8°).`;
+        speech = 'Level your shoulders.';
+      } else {
+        primary = 'Level your shoulders.';
+        supporting = `Upper body is tilting ${tilt}° to the side. Extend equally through both fingertips to balance your weight.`;
+        speech = `Level your shoulders. Extend arms evenly over both feet.`;
+      }
+      break;
+    }
+
+    case 'instability': {
+      primary = 'Keep the position steady and ground through your feet.';
+      supporting = `Subtle lateral sway detected during hold. Press the outer rear foot down to stabilize your base.`;
+      speech = 'Keep the position steady. Ground firmly through both feet.';
+      break;
+    }
+
+    case 'optimal_hold':
+    default: {
+      if (level === 4) {
+        // Level 4: Historical coaching
+        const weakness = coachingMemory.previousWeakness;
+        const trend = coachingMemory.recentTrend;
+        if (weakness && weakness.includes('Knee') && currentMetrics.kneeStacked) {
+          primary = 'Your knee alignment is noticeably stronger than last session.';
+          supporting = `Keep the knee stacked here and focus on sustaining hold stillness.`;
+          speech = 'Your knee alignment is stronger than last session. Maintain this steady hold.';
+        } else if (weakness && weakness.includes('Stability')) {
+          primary = 'Alignment is dialed in. Stability remains your main focus today.';
+          supporting = `Ground into your back heel to build endurance without drifting.`;
+          speech = 'Alignment is dialed in. Focus on steady control through the hold.';
+        } else {
+          primary = `Your form is consistent with your ${trend.toLowerCase()} trend.`;
+          supporting = `Sustaining clean joint geometry through the hold.`;
+          speech = `Excellent form. Keep sustaining this hold.`;
+        }
+      } else if (level === 3) {
+        // Level 3: Personalized coaching based on user profile goal
+        if (goal === 'balance') {
+          primary = 'Great stability! Keep equal weight across both feet.';
+          supporting = `Your alignment has been solid. Maintain steady hold stillness.`;
+          speech = 'Great stability. Keep your weight centered between both feet.';
+        } else if (goal === 'flexibility') {
+          primary = 'Controlled alignment! Stay steady in this depth.';
+          supporting = `Comfortable hip opening with front knee squarely stacked.`;
+          speech = 'Controlled alignment. Stay steady as you hold the posture.';
+        } else if (goal === 'strength') {
+          primary = 'Strong, grounded hold! Maintain active leg engagement.';
+          supporting = `Quadricep and hip stamina building cleanly.`;
+          speech = 'Strong grounded hold. Keep your legs firmly engaged.';
+        } else if (goal === 'stress') {
+          primary = 'Smooth, mindful hold. Soften your breath and gaze.';
+          supporting = `Shoulders relaxed, arms steady, breath flowing naturally.`;
+          speech = 'Smooth hold. Keep your breath slow and calm.';
+        } else {
+          primary = 'Great alignment! Keep holding steady.';
+          supporting = `Knee stacked (${currentMetrics.kneeAnkleOffsetPct}%), knee angle ${currentMetrics.frontKneeAngle}°, shoulders level.`;
+          speech = 'Great alignment. Keep holding steady.';
+        }
+      } else {
+        // Level 1: Immediate positive confirmation
+        if (phase === 'entering') {
+          primary = 'Pose detected. Settle into your Warrior II hold.';
+          supporting = 'Knee stacked over ankle, shoulders level, gaze forward.';
+          speech = 'Great, I have your position. Settle into the hold.';
+        } else {
+          primary = pick([
+            'Good alignment! Keep holding steady.',
+            'Solid form! Maintain this steady hold.',
+            'Nicely aligned. Stay centered and steady.'
+          ]);
+          supporting = `Knee stacked (${currentMetrics.kneeAnkleOffsetPct}%), knee angle ${currentMetrics.frontKneeAngle}°, shoulders level.`;
+          speech = primary;
+        }
+      }
+      break;
+    }
+  }
+
+  return {
+    level,
+    levelLabel,
+    phase,
+    primary,
+    supporting,
+    speech,
+    opportunityLabel: currentOpportunity.opportunityLabel,
+  };
+}
+
+// --- Developer Telemetry & Inspector Panel Helper ---
+function updateDevTelemetry(data) {
+  if (!devDebugPanel || devDebugPanel.style.display === 'none') return;
+  if (dbgPose) dbgPose.textContent = data.pose || 'Warrior II';
+  if (dbgConfidence) dbgConfidence.textContent = `${data.confidence ?? '--'}%`;
+  if (dbgKneeAngle) dbgKneeAngle.textContent = `${data.kneeAngle ?? '--'}°`;
+  if (dbgOffset) dbgOffset.textContent = `${data.offset ?? '--'}%`;
+  if (dbgShoulder) dbgShoulder.textContent = `${data.shoulder ?? '--'}°`;
+  if (dbgScore) dbgScore.textContent = `${data.score ?? '--'}/100`;
+  if (dbgState) dbgState.textContent = data.state || '--';
+  if (dbgCoachLevel) dbgCoachLevel.textContent = data.coachLevel || 'Level 1';
+  if (dbgPhase) dbgPhase.textContent = data.phase || 'Holding';
+  if (dbgPrimaryIssue) dbgPrimaryIssue.textContent = data.primaryIssue || 'None';
+  if (dbgFpAlign) dbgFpAlign.textContent = data.fpAlign ?? '--';
+  if (dbgFpStab) dbgFpStab.textContent = data.fpStab ?? '--';
+  if (dbgFpCtrl) dbgFpCtrl.textContent = data.fpCtrl ?? '--';
+  if (dbgAdaptiveDiff) dbgAdaptiveDiff.textContent = data.adaptiveDiff || 'Foundation';
+  if (dbgAdaptiveFocus) dbgAdaptiveFocus.textContent = data.adaptiveFocus || '--';
+}
+
+function toggleDevDebugPanel() {
+  if (!devDebugPanel) return;
+  const isHidden = devDebugPanel.style.display === 'none' || !devDebugPanel.style.display;
+  devDebugPanel.style.display = isHidden ? 'flex' : 'none';
+}
+
+if (devDebugToggleBtn) {
+  devDebugToggleBtn.addEventListener('click', toggleDevDebugPanel);
+}
+if (closeDevDebugBtn) {
+  closeDevDebugBtn.addEventListener('click', () => {
+    if (devDebugPanel) devDebugPanel.style.display = 'none';
+  });
+}
+window.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+    e.preventDefault();
+    toggleDevDebugPanel();
+  }
+});
+if (window.location.search && window.location.search.includes('debug=true')) {
+  if (devDebugPanel) devDebugPanel.style.display = 'flex';
+}
+
 // --- MediaPipe Callback ---
 function onPoseResults(results) {
   if (canvasElement.width !== videoElement.videoWidth && videoElement.videoWidth > 0) {
@@ -534,9 +1084,11 @@ function onPoseResults(results) {
   canvasCtx.restore();
 }
 
-// --- Out of Frame / No Person State Handlers ---
+// --- Out of Frame / Low Confidence State Handlers ---
 function handleLowConfidence() {
   currentFeedbackState = 'out_of_frame';
+  sessionState.phase = 'preparing';
+
   liveScoreDisplay.textContent = '--';
   scoreGrade.textContent = 'Step in frame';
   scoreGrade.style.color = '#ef4444';
@@ -549,15 +1101,34 @@ function handleLowConfidence() {
   stanceDisplay.textContent = 'Partial view';
   stanceDisplay.style.color = '#ef4444';
 
+  if (coachPhaseTag) coachPhaseTag.textContent = 'PREPARING';
+  if (coachLevelTag) coachLevelTag.textContent = 'Level 1 · Immediate';
+  if (bdPrimaryOppVal) bdPrimaryOppVal.textContent = 'Camera Visibility';
+
   feedbackBanner.className = 'feedback-banner state-caution';
   feedbackIcon.textContent = '👤';
   feedbackText.textContent = 'Step fully into the camera frame';
   feedbackSub.textContent = 'Position yourself so your full body from shoulders to ankles is visible for accurate tracking';
   speakCoachCue('Please step fully into the camera frame.');
+
+  updateDevTelemetry({
+    pose: 'Warrior II',
+    confidence: 40,
+    kneeAngle: '--',
+    offset: '--',
+    shoulder: '--',
+    score: '--',
+    state: 'Low Confidence',
+    coachLevel: 'Level 1',
+    phase: 'Preparing',
+    primaryIssue: 'Camera Visibility',
+  });
 }
 
 function handleNoPerson() {
   currentFeedbackState = 'neutral';
+  sessionState.phase = 'preparing';
+
   liveScoreDisplay.textContent = '--';
   scoreGrade.textContent = 'No person detected';
   scoreGrade.style.color = '#64748b';
@@ -570,16 +1141,34 @@ function handleNoPerson() {
   stanceDisplay.textContent = 'Stand in frame';
   stanceDisplay.style.color = '#64748b';
 
+  if (coachPhaseTag) coachPhaseTag.textContent = 'PREPARING';
+  if (coachLevelTag) coachLevelTag.textContent = 'Level 1 · Immediate';
+  if (bdPrimaryOppVal) bdPrimaryOppVal.textContent = 'Awaiting Practitioner';
+
   feedbackBanner.className = 'feedback-banner state-neutral';
   feedbackIcon.textContent = '🧘';
   feedbackText.textContent = 'Step into the camera frame to begin practice';
   feedbackSub.textContent = 'Ensure good lighting and plenty of room to extend your arms';
+
+  updateDevTelemetry({
+    pose: 'Warrior II',
+    confidence: 0,
+    kneeAngle: '--',
+    offset: '--',
+    shoulder: '--',
+    score: '--',
+    state: 'No Person',
+    coachLevel: 'Level 1',
+    phase: 'Preparing',
+    primaryIssue: 'No Person Detected',
+  });
 }
 
 // --- Pose Analysis & Measured Feedback State Machine ---
 function handlePoseAnalysis(analysis, landmarks) {
   // Track valid, confident frame
   validFrameCount++;
+  sessionState.validFrames = validFrameCount;
   latestMeasuredScore = analysis.movementQualityScore;
 
   // Capture baseline score on first confident valid frame
@@ -630,6 +1219,8 @@ function handlePoseAnalysis(analysis, landmarks) {
     });
   }
 
+  const currentStability = calculateStability(temporalSamples);
+
   // Update HUD values
   frontKneeAngleDisplay.textContent = `${analysis.frontKneeAngle}°`;
   kneeAnkleOffsetDisplay.textContent = `${analysis.kneeAnkleOffsetPct}%`;
@@ -663,115 +1254,168 @@ function handlePoseAnalysis(analysis, landmarks) {
   canvasCtx.fillText(`${analysis.frontKneeAngle}° (${analysis.kneeAnkleOffsetPct}%)`, -kx - 45, ky - 10);
   canvasCtx.restore();
 
-  // Quality score grade label
-  if (analysis.movementQualityScore >= 80) {
-    scoreGrade.textContent = 'Optimal Alignment';
-    scoreGrade.style.color = '#10b981';
-  } else if (analysis.movementQualityScore >= 60) {
-    scoreGrade.textContent = 'Fair Alignment';
-    scoreGrade.style.color = '#f59e0b';
-  } else {
-    scoreGrade.textContent = 'Adjusting Posture';
-    scoreGrade.style.color = '#ef4444';
-  }
+  // Movement Quality State Grade & Color
+  const qualityState = getMovementQualityState(analysis.movementQualityScore);
+  scoreGrade.textContent = qualityState.label;
+  scoreGrade.style.color = qualityState.color;
 
-  // --- Strict Feedback Priority Matching Actual Measurements ---
-  // Exactly ONE primary actionable correction at a time:
-  // Priority A: Poor knee/ankle alignment (offset > 12%)
-  // Priority B: Knee angle too open (> 105°)
-  // Priority C: Knee angle too closed (< 82°)
-  // Priority D: Shoulders tilted (> 8°)
-  // Priority E: All major checks good
-  let currentProblem = null;
+  // Real-time Score Breakdown Panel (Explainable Movement Quality)
+  if (bdKneeAngleVal) bdKneeAngleVal.textContent = `${analysis.kneeAngleScore}`;
+  if (bdKneeStackVal) bdKneeStackVal.textContent = `${analysis.kneeAnkleAlignmentScore}`;
+  if (bdShoulderVal) bdShoulderVal.textContent = `${analysis.shoulderScore}`;
 
-  if (!analysis.kneeStacked) {
-    currentProblem = {
-      category: 'knee_ankle',
-      isIssue: true,
-      primary: 'Bring your front knee back over your ankle.',
-      supporting: `Camera-plane knee/ankle offset: ${analysis.kneeAnkleOffsetPct}%. Aim for ≤12%.`,
-      speech: 'Bring your front knee back over your ankle.'
-    };
-  } else if (analysis.frontKneeAngle > 105) {
-    currentProblem = {
-      category: 'knee_open',
-      isIssue: true,
-      primary: 'Bend your front knee a little deeper.',
-      supporting: `Current knee angle: ${analysis.frontKneeAngle}°. Aim near 90°.`,
-      speech: 'Bend your front knee a little deeper.'
-    };
-  } else if (analysis.frontKneeAngle < 82) {
-    currentProblem = {
-      category: 'knee_closed',
-      isIssue: true,
-      primary: 'Ease your front knee back slightly.',
-      supporting: `Current knee angle: ${analysis.frontKneeAngle}°. Aim near 90°.`,
-      speech: 'Ease your front knee back slightly.'
-    };
-  } else if (analysis.shoulderTilt > 8) {
-    currentProblem = {
-      category: 'shoulder',
-      isIssue: true,
-      primary: 'Level your shoulders.',
-      supporting: `Current shoulder tilt: ${analysis.shoulderTilt}°. Keep arms parallel to floor.`,
-      speech: 'Level your shoulders.'
-    };
-  } else {
-    currentProblem = {
-      category: 'good',
-      isIssue: false,
-      primary: 'Good alignment! Keep holding steady.',
-      supporting: `Knee stacked (${analysis.kneeAnkleOffsetPct}%), knee angle ${analysis.frontKneeAngle}°, shoulders level.`,
-      speech: 'Good alignment. Keep holding steady.'
-    };
-  }
+  // Evaluate Primary Coaching Opportunity via Priority Engine
+  const currentOpportunity = evaluatePrimaryCoachingOpportunity(analysis, currentStability);
+  if (bdPrimaryOppVal) bdPrimaryOppVal.textContent = currentOpportunity.opportunityLabel;
 
   // Tally for focusArea determination
-  if (currentProblem.category === 'knee_ankle') issueTally.kneeAnkle++;
-  else if (currentProblem.category === 'knee_open' || currentProblem.category === 'knee_closed') issueTally.kneeAngle++;
-  else if (currentProblem.category === 'shoulder') issueTally.shoulder++;
-  else if (currentProblem.category === 'good') issueTally.good++;
+  if (currentOpportunity.category === 'knee_ankle') issueTally.kneeAnkle++;
+  else if (currentOpportunity.category === 'knee_open' || currentOpportunity.category === 'knee_closed') issueTally.kneeAngle++;
+  else if (currentOpportunity.category === 'shoulder') issueTally.shoulder++;
+  else if (currentOpportunity.category === 'optimal_hold') issueTally.good++;
 
-  // --- Debouncing State Machine ---
-  if (currentProblem.category === pendingFeedbackCategory) {
+  // Consecutive Frame Trackers for Phase & Debounce
+  if (currentOpportunity.isIssue) {
+    sessionState.consecutiveIssueFrames++;
+    sessionState.consecutiveGoodFrames = 0;
+    sessionState.lastIssueCategory = currentOpportunity.category;
+    sessionState.lastIssueMetricValue = currentOpportunity.category === 'knee_ankle' ? analysis.kneeAnkleOffsetPct : analysis.frontKneeAngle;
+  } else {
+    sessionState.consecutiveGoodFrames++;
+    sessionState.consecutiveIssueFrames = 0;
+  }
+
+  // --- Session Milestones Detection ---
+  // Milestone 1: First valid confident pose detected
+  if (!sessionState.milestonesTriggered.firstPose && validFrameCount >= 2) {
+    sessionState.milestonesTriggered.firstPose = true;
+    speakCoachCue("Great — I've got your position.");
+  }
+
+  // Milestone 2: 5 seconds of stable hold
+  if (!sessionState.milestonesTriggered.stableHold5s && sessionState.consecutiveGoodFrames >= 25) {
+    sessionState.milestonesTriggered.stableHold5s = true;
+    speakCoachCue("Nice control.");
+  }
+
+  // Milestone 3: 15s hold
+  if (!sessionState.milestonesTriggered.milestone15s && sessionSecondsElapsed >= 15 && sessionState.consecutiveGoodFrames >= 10) {
+    sessionState.milestonesTriggered.milestone15s = true;
+    speakCoachCue("Strong, steady consistency.");
+  }
+
+  // Debouncing State Machine
+  if (currentOpportunity.category === pendingFeedbackCategory) {
     pendingFeedbackFrames++;
   } else {
-    pendingFeedbackCategory = currentProblem.category;
+    pendingFeedbackCategory = currentOpportunity.category;
     pendingFeedbackFrames = 1;
   }
 
   if (pendingFeedbackFrames >= DEBOUNCE_THRESHOLD && activeFeedbackCategory !== pendingFeedbackCategory) {
     activeFeedbackCategory = pendingFeedbackCategory;
+    sessionState.phraseRotationIndex++;
 
-    if (currentProblem.isIssue) {
-      currentFeedbackState = 'warn';
-      feedbackBanner.className = 'feedback-banner state-warn';
-      feedbackIcon.textContent = '⚠️';
-      feedbackText.textContent = currentProblem.primary;
-      feedbackSub.textContent = currentProblem.supporting;
-      speakCoachCue(currentProblem.speech);
-    } else {
-      currentFeedbackState = 'good';
-      feedbackBanner.className = 'feedback-banner state-good';
-      feedbackIcon.textContent = '✨';
-      feedbackText.textContent = currentProblem.primary;
-      feedbackSub.textContent = currentProblem.supporting;
-      speakCoachCue(currentProblem.speech);
-
-      // User achieved corrected alignment
+    // Check for real-time improvement delta upon correcting an issue
+    if (!currentOpportunity.isIssue) {
       correctedAfterScore = analysis.movementQualityScore;
       if (baselineBeforeScore !== null) {
         lastCalculatedDelta = correctedAfterScore - baselineBeforeScore;
         if (lastCalculatedDelta > 0) {
+          sessionState.phase = 'improving';
           deltaBadge.style.display = 'inline-flex';
           deltaBadgeText.textContent = `Movement quality improved by +${lastCalculatedDelta}`;
         } else {
+          sessionState.phase = 'holding';
           deltaBadge.style.display = 'none';
         }
+      } else {
+        sessionState.phase = 'holding';
       }
+    } else {
+      sessionState.phase = 'correcting';
+      deltaBadge.style.display = 'none';
+    }
+
+    // Retrieve full context for AI Coach Message Generator
+    const profile = getUserProfile();
+    const sessions = getStoredSessions();
+    const fingerprint = buildPracticeFingerprint(sessions);
+    const adaptivePlan = generateAdaptiveSession(profile, fingerprint);
+    const coachingMemory = deriveCoachingMemory(sessions, fingerprint);
+
+    const coachContext = {
+      userProfile: profile,
+      currentMetrics: {
+        movementQualityScore: analysis.movementQualityScore,
+        kneeAngleScore: analysis.kneeAngleScore,
+        kneeAnkleAlignmentScore: analysis.kneeAnkleAlignmentScore,
+        shoulderScore: analysis.shoulderScore,
+        frontKneeAngle: analysis.frontKneeAngle,
+        kneeAnkleOffsetPct: analysis.kneeAnkleOffsetPct,
+        kneeStacked: analysis.kneeStacked,
+        shoulderTilt: analysis.shoulderTilt,
+        isWarriorStance: analysis.isWarriorStance,
+        confidenceSufficient: analysis.confidenceSufficient,
+        currentStability,
+      },
+      currentOpportunity,
+      practiceFingerprint: fingerprint,
+      adaptivePlan,
+      sessionState,
+      coachingMemory,
+      delta: lastCalculatedDelta,
+    };
+
+    const coachMessage = generateCoachMessage(coachContext);
+    sessionState.currentLevel = coachMessage.level;
+
+    // Update UI Tags
+    if (coachPhaseTag) coachPhaseTag.textContent = coachMessage.phase.toUpperCase();
+    if (coachLevelTag) coachLevelTag.textContent = coachMessage.levelLabel;
+
+    if (currentOpportunity.isIssue) {
+      currentFeedbackState = 'warn';
+      feedbackBanner.className = 'feedback-banner state-warn';
+      feedbackIcon.textContent = '⚠️';
+      feedbackText.textContent = coachMessage.primary;
+      feedbackSub.textContent = coachMessage.supporting;
+      speakCoachCue(coachMessage.speech);
+    } else {
+      currentFeedbackState = 'good';
+      feedbackBanner.className = 'feedback-banner state-good';
+      feedbackIcon.textContent = '✨';
+      feedbackText.textContent = coachMessage.primary;
+      feedbackSub.textContent = coachMessage.supporting;
+      speakCoachCue(coachMessage.speech);
     }
   }
+
+  // Real-Time Developer Telemetry Feed
+  const profile = getUserProfile();
+  const sessions = getStoredSessions();
+  const fingerprint = buildPracticeFingerprint(sessions);
+  const adaptivePlan = generateAdaptiveSession(profile, fingerprint);
+
+  updateDevTelemetry({
+    pose: 'Warrior II',
+    confidence: 90,
+    kneeAngle: analysis.frontKneeAngle,
+    offset: analysis.kneeAnkleOffsetPct,
+    shoulder: analysis.shoulderTilt,
+    score: analysis.movementQualityScore,
+    state: qualityState.label,
+    coachLevel: `Level ${sessionState.currentLevel}`,
+    phase: sessionState.phase.charAt(0).toUpperCase() + sessionState.phase.slice(1),
+    primaryIssue: currentOpportunity.opportunityLabel,
+    fpAlign: fingerprint.alignment,
+    fpStab: fingerprint.stability,
+    fpCtrl: fingerprint.control,
+    adaptiveDiff: adaptivePlan.difficulty,
+    adaptiveFocus: adaptivePlan.targetFocus,
+  });
 }
+
 
 // --- Temporal Metric Calculations ---
 
@@ -1167,6 +1811,7 @@ function finishSession() {
     if (sumAlignmentVal) sumAlignmentVal.textContent = '--';
     if (sumStabilityVal) sumStabilityVal.textContent = '--';
     if (sumControlVal) sumControlVal.textContent = '--';
+    if (coachingStoryCard) coachingStoryCard.style.display = 'none';
 
     summarySubtitle.textContent = "We couldn't collect enough reliable pose data. Please try again with your full body visible in the camera frame.";
     switchView('summary');
@@ -1256,6 +1901,62 @@ function finishSession() {
   };
   saveSessionRecord(sessionRecord);
 
+  // Populate Before → After Coaching Story Card (Upgrade 3 Movement Intelligence)
+  if (coachingStoryCard) {
+    coachingStoryCard.style.display = 'flex';
+    if (storyBeforeScore) storyBeforeScore.textContent = `${finalBefore}`;
+    
+    // Identify initial issue
+    let initialIssueDesc = 'Front knee stack over ankle';
+    if (issueTally.kneeAnkle > 0) initialIssueDesc = 'Knee/Ankle alignment deviation';
+    else if (issueTally.kneeAngle > 0) initialIssueDesc = 'Front knee depth drift';
+    else if (issueTally.shoulder > 0) initialIssueDesc = 'Shoulder line tilt';
+    else initialIssueDesc = 'Foundation posture baseline';
+    if (storyBeforeDetail) storyBeforeDetail.textContent = `Primary: ${initialIssueDesc}`;
+
+    if (storyAfterScore) storyAfterScore.textContent = `${finalAfter}`;
+    const finalQuality = getMovementQualityState(finalAfter);
+    if (storyAfterDetail) storyAfterDetail.textContent = `Quality: ${finalQuality.label}`;
+
+    if (storyDeltaScore) {
+      storyDeltaScore.textContent = finalDelta > 0 ? `+${finalDelta} pts` : `${finalDelta} pts`;
+      storyDeltaScore.style.color = finalDelta > 0 ? '#10b981' : (finalDelta === 0 ? '#94a3b8' : '#f59e0b');
+    }
+    if (storyDeltaDetail) {
+      storyDeltaDetail.textContent = finalDelta > 0 ? 'Measured Improvement' : (finalDelta === 0 ? 'Consistent Hold' : 'Posture Drift');
+    }
+
+    // Explanatory Coach Insight
+    let coachInsight = '';
+    if (finalDelta > 0) {
+      if (issueTally.kneeAnkle > 0) {
+        coachInsight = `Your biggest measured improvement came from bringing the front knee closer to the ankle stack (holding offset within target range).`;
+      } else if (issueTally.kneeAngle > 0) {
+        coachInsight = `Your biggest measured improvement came from refining your front knee depth closer to 90°.`;
+      } else if (issueTally.shoulder > 0) {
+        coachInsight = `Your biggest improvement came from leveling your shoulders and balancing upper body weight.`;
+      } else {
+        coachInsight = `You demonstrated high posture discipline, improving your movement score across the hold.`;
+      }
+    } else if (finalDelta === 0) {
+      coachInsight = `You maintained consistent movement quality from your initial capture throughout the hold.`;
+    } else {
+      coachInsight = `Your posture experienced slight fatigue drift during the hold. Focus on grounding through both feet in your next practice.`;
+    }
+    if (storyInsightText) storyInsightText.textContent = coachInsight;
+
+    // Next Session Reasoning (OBSERVE → LEARN → ADAPT)
+    const sessions = getStoredSessions();
+    const fp = buildPracticeFingerprint(sessions);
+    const nextAdaptivePlan = generateAdaptiveSession(profile, fp);
+    if (storyNextStepText) {
+      storyNextStepText.textContent = `Today's hold measured ${sessionAlignment}/100 alignment with ${sessionStability}/100 stability. Your next session will keep ${nextAdaptivePlan.difficulty} difficulty and prioritize ${nextAdaptivePlan.targetFocus}.`;
+    }
+  }
+
+  // Verbal Coaching Completion Cue
+  speakCoachCue('Practice complete. Great job dedicating time to your alignment.');
+
   switchView('summary');
 }
 
@@ -1283,6 +1984,10 @@ function renderProgressView() {
 
     if (fpWeaknessText) fpWeaknessText.textContent = 'Complete your first practice';
     if (fpNextSessionText) fpNextSessionText.textContent = 'Foundational Warrior II practice';
+
+    if (fpMeaningText) {
+      fpMeaningText.textContent = 'Complete your first practice session with the live camera to start building your Personal Practice Fingerprint.';
+    }
 
     progressInsightText.textContent = 
       "Complete your first practice session with the live camera to start building your Personal Practice Fingerprint.";
@@ -1317,6 +2022,15 @@ function renderProgressView() {
 
     if (fpWeaknessText) fpWeaknessText.textContent = fingerprint.weakness;
     if (fpNextSessionText) fpNextSessionText.textContent = `${adaptiveSession.targetFocus} (${adaptiveSession.difficulty})`;
+
+    // Transparent Practice Fingerprint "What This Means" Explainability
+    if (fpMeaningText) {
+      let strengthDimension = 'Alignment';
+      if (fingerprint.stability >= fingerprint.alignment && fingerprint.stability >= fingerprint.control) strengthDimension = 'Stability';
+      else if (fingerprint.control >= fingerprint.alignment && fingerprint.control >= fingerprint.stability) strengthDimension = 'Control';
+
+      fpMeaningText.textContent = `Your Practice Fingerprint combines 4 deterministic dimensions: Alignment (${fingerprint.alignment}/100) measures joint stacking precision, Stability (${fingerprint.stability}/100) measures hold stillness, Control (${fingerprint.control}%) tracks hold endurance, and Consistency (${fingerprint.consistency}/100) reflects cross-session repeatability. Primary Strength: ${strengthDimension}. Target Focus: ${fingerprint.weakness}.`;
+    }
 
     // Plain-Language Insight
     if (sessions.length === 1) {

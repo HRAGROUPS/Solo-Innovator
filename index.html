@@ -48,6 +48,11 @@
         </button>
         <button id="navPracticeBtn" class="nav-btn active">Practice</button>
         <button id="navProgressBtn" class="nav-btn">My Progress</button>
+        <button id="devDebugToggleBtn" class="nav-btn-icon" title="Toggle Developer Telemetry (Ctrl+Shift+D)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+        </button>
         <button id="navProfileBtn" class="nav-btn-icon" title="Edit Profile">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
@@ -200,23 +205,51 @@
               </div>
             </div>
 
-            <!-- Movement Quality Score Widget -->
-            <div class="score-widget">
-              <div class="score-circle" id="scoreCircle">
-                <span class="score-number" id="liveScoreDisplay">--</span>
-                <span class="score-unit">/100</span>
+            <!-- Movement Quality Score & Breakdown Widget -->
+            <div class="score-widget-container">
+              <div class="score-widget">
+                <div class="score-circle" id="scoreCircle">
+                  <span class="score-number" id="liveScoreDisplay">--</span>
+                  <span class="score-unit">/100</span>
+                </div>
+                <div class="score-meta">
+                  <span class="score-title">Movement Quality</span>
+                  <span class="score-grade" id="scoreGrade">Stand in frame</span>
+                </div>
               </div>
-              <div class="score-meta">
-                <span class="score-title">Movement Quality</span>
-                <span class="score-grade" id="scoreGrade">Stand in frame</span>
+
+              <!-- Real-time Score Explanation Breakdown (Explainable AI Engine) -->
+              <div class="score-breakdown-panel" id="scoreBreakdownPanel">
+                <div class="breakdown-items">
+                  <div class="breakdown-item" title="Knee angle alignment weight: 45%">
+                    <span class="bd-label">Knee Angle (45%)</span>
+                    <span class="bd-val" id="bdKneeAngleVal">--</span>
+                  </div>
+                  <div class="breakdown-item" title="Knee/ankle stack alignment weight: 35%">
+                    <span class="bd-label">Knee Stack (35%)</span>
+                    <span class="bd-val" id="bdKneeStackVal">--</span>
+                  </div>
+                  <div class="breakdown-item" title="Shoulder horizontal line weight: 20%">
+                    <span class="bd-label">Shoulder Line (20%)</span>
+                    <span class="bd-val" id="bdShoulderVal">--</span>
+                  </div>
+                </div>
+                <div class="breakdown-opp">
+                  <span class="bd-opp-tag">Primary Focus:</span>
+                  <span class="bd-opp-val" id="bdPrimaryOppVal">Calibrating stance</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- Debounced Feedback Toast Bar -->
+          <!-- Debounced Feedback Toast Bar with Context & Intelligence Level -->
           <div id="feedbackBanner" class="feedback-banner state-neutral">
             <div class="feedback-icon" id="feedbackIcon">🧘</div>
             <div class="feedback-content">
+              <div class="feedback-meta-row">
+                <span class="coach-phase-tag" id="coachPhaseTag">Preparing</span>
+                <span class="coach-level-tag" id="coachLevelTag">Level 1 · Immediate</span>
+              </div>
               <div class="feedback-text" id="feedbackText">Step into the camera frame to begin alignment tracking</div>
               <div class="feedback-sub" id="feedbackSub">Ensure your full body from shoulders to ankles is visible</div>
             </div>
@@ -341,6 +374,53 @@
             </div>
           </div>
 
+          <!-- Before → After Coaching Story (Upgrade 3 Movement Intelligence) -->
+          <div class="coaching-story-card" id="coachingStoryCard">
+            <div class="story-header">
+              <div class="story-badge">Coaching Transition Story</div>
+              <h3>Measured Hold Transformation</h3>
+              <p class="story-sub">Tracking actual metric shift from initial baseline to corrected hold</p>
+            </div>
+
+            <div class="story-grid">
+              <div class="story-box baseline">
+                <span class="story-tag">Initial Capture (Before)</span>
+                <div class="story-score" id="storyBeforeScore">--</div>
+                <span class="story-detail" id="storyBeforeDetail">Primary Issue: Analyzing...</span>
+              </div>
+              <div class="story-arrow">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+                </svg>
+              </div>
+              <div class="story-box corrected">
+                <span class="story-tag">Corrected Quality (After)</span>
+                <div class="story-score" id="storyAfterScore">--</div>
+                <span class="story-detail" id="storyAfterDetail">Quality: Evaluating...</span>
+              </div>
+              <div class="story-box delta-summary">
+                <span class="story-tag">Measured Shift</span>
+                <div class="story-score" id="storyDeltaScore">--</div>
+                <span class="story-detail" id="storyDeltaDetail">Movement Quality Change</span>
+              </div>
+            </div>
+
+            <div class="story-insight-box">
+              <div class="story-insight-label">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+                </svg>
+                <strong>What Changed &amp; Coach Insight:</strong>
+              </div>
+              <p id="storyInsightText">Evaluating your movement quality trajectory across this session...</p>
+            </div>
+
+            <div class="story-next-step">
+              <span class="next-step-tag">Adaptive Next-Session Reasoning (Observe → Learn → Adapt):</span>
+              <p id="storyNextStepText">Your next session will calibrate based on today's alignment and stability metrics.</p>
+            </div>
+          </div>
+
           <div class="summary-actions">
             <button id="viewProgressFromSummaryBtn" class="btn btn-primary btn-large">
               View Progress History &amp; Chart
@@ -433,6 +513,17 @@
                 <strong id="fpNextSessionText">Complete your first practice</strong>
               </div>
             </div>
+
+            <!-- Practice Fingerprint Explainability (What This Means) -->
+            <div class="fp-meaning-box" id="fpMeaningBox">
+              <div class="meaning-header">
+                <span class="meaning-icon">🔍</span>
+                <strong>What This Means for Your Practice</strong>
+              </div>
+              <p id="fpMeaningText">
+                Complete your first practice session to analyze your unique alignment and stability fingerprint.
+              </p>
+            </div>
           </div>
 
           <!-- Plain-Language Dynamic Insight -->
@@ -473,6 +564,81 @@
           </div>
         </div>
       </section>
+
+      <!-- DEVELOPER TELEMETRY & DEBUG PANEL (Toggle with Ctrl+Shift+D or Navbar Dev Icon) -->
+      <aside id="devDebugPanel" class="dev-debug-panel" style="display: none;">
+        <div class="debug-header">
+          <div class="debug-title">
+            <span class="debug-badge">DEV TELEMETRY</span>
+            <h4>Real-Time Movement Engine Inspector</h4>
+          </div>
+          <button id="closeDevDebugBtn" class="debug-close-btn" title="Close Debug Panel">✕</button>
+        </div>
+        <div class="debug-content">
+          <div class="debug-row">
+            <span class="dbg-label">Current Pose:</span>
+            <span class="dbg-val" id="dbgPose">Warrior II</span>
+          </div>
+          <div class="debug-row">
+            <span class="dbg-label">Camera Confidence:</span>
+            <span class="dbg-val" id="dbgConfidence">--%</span>
+          </div>
+          <div class="debug-row">
+            <span class="dbg-label">Front Knee Angle:</span>
+            <span class="dbg-val" id="dbgKneeAngle">--°</span>
+          </div>
+          <div class="debug-row">
+            <span class="dbg-label">Knee/Ankle Offset:</span>
+            <span class="dbg-val" id="dbgOffset">--%</span>
+          </div>
+          <div class="debug-row">
+            <span class="dbg-label">Shoulder Tilt:</span>
+            <span class="dbg-val" id="dbgShoulder">--°</span>
+          </div>
+          <div class="debug-divider"></div>
+          <div class="debug-row">
+            <span class="dbg-label">Live Quality Score:</span>
+            <span class="dbg-val" id="dbgScore">--/100</span>
+          </div>
+          <div class="debug-row">
+            <span class="dbg-label">Quality State:</span>
+            <span class="dbg-val" id="dbgState">--</span>
+          </div>
+          <div class="debug-row">
+            <span class="dbg-label">Coach Level:</span>
+            <span class="dbg-val" id="dbgCoachLevel">Level 1</span>
+          </div>
+          <div class="debug-row">
+            <span class="dbg-label">Session Phase:</span>
+            <span class="dbg-val" id="dbgPhase">Preparing</span>
+          </div>
+          <div class="debug-row">
+            <span class="dbg-label">Primary Opportunity:</span>
+            <span class="dbg-val" id="dbgPrimaryIssue">None</span>
+          </div>
+          <div class="debug-divider"></div>
+          <div class="debug-row">
+            <span class="dbg-label">Fingerprint Align:</span>
+            <span class="dbg-val" id="dbgFpAlign">--</span>
+          </div>
+          <div class="debug-row">
+            <span class="dbg-label">Fingerprint Stab:</span>
+            <span class="dbg-val" id="dbgFpStab">--</span>
+          </div>
+          <div class="debug-row">
+            <span class="dbg-label">Fingerprint Ctrl:</span>
+            <span class="dbg-val" id="dbgFpCtrl">--</span>
+          </div>
+          <div class="debug-row">
+            <span class="dbg-label">Adaptive Diff:</span>
+            <span class="dbg-val" id="dbgAdaptiveDiff">Foundation</span>
+          </div>
+          <div class="debug-row">
+            <span class="dbg-label">Adaptive Focus:</span>
+            <span class="dbg-val" id="dbgAdaptiveFocus">--</span>
+          </div>
+        </div>
+      </aside>
 
     </main>
 

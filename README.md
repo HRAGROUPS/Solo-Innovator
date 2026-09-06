@@ -108,16 +108,60 @@ Open your browser and navigate to:
 http://localhost:3000
 ```
 
+### Automated Verification Suite
+To run the automated test suite verifying all 15 core Upgrade 3 scenarios:
+```bash
+node test_upgrade3.js
+```
+
+---
+
+## 🌟 Upgrade 3: Intelligent AI Coach & Movement Intelligence
+
+Upgrade 3 elevates the companion from a posture detector to an **interpreting, explaining, and adapting AI Coach**:
+
+1. **Structured AI Coach Layer (`generateCoachMessage`)**:
+   - Interprets deterministic CV measurements without recalculating geometry.
+   - 4 Situational Intelligence Levels:
+     - **Level 1 (Immediate)**: Concise cue targeting the primary physical action.
+     - **Level 2 (Explanatory)**: Adds contextual explanation of joint drift.
+     - **Level 3 (Personalized)**: Connects hold quality to practitioner goals (Balance, Flexibility, Strength, Stress).
+     - **Level 4 (Historical)**: References multi-session continuity and recurring strengths/weaknesses.
+
+2. **Coaching Priority Engine**:
+   - Delivers strictly **one actionable cue** at a time based on a 6-tier hierarchy:
+     1. Camera visibility / confidence gating
+     2. Knee/ankle stack deviation ($>12\%$)
+     3. Knee angle depth deviation ($<82^\circ$ or $>105^\circ$)
+     4. Shoulder line tilt ($>8^\circ$)
+     5. Temporal hold instability / sway
+     6. Optimal hold reinforcement
+
+3. **Unified Voice & Visual Coach**:
+   - Single unified decision pipeline for visual feedback banner and Web Speech API synthesis.
+   - Paced rate limiting (minimum 3.5s spacing) and milestone-based announcements (1st valid pose, 5s hold, 15s hold, positive correction delta).
+
+4. **Explainable AI & Before → After Coaching Story**:
+   - **Real-Time Score Breakdown**: Live HUD display for Knee Angle (45%), Knee Stack (35%), and Shoulder Line (20%).
+   - **Before → After Story**: Explains metric attribution (e.g., knee alignment $61 \to 84, +23\text{ pts}$) and next-session adaptation reasoning (**Observe → Learn → Adapt**).
+   - **Practice Fingerprint Explainability**: "What This Means" card detailing Alignment, Stability, Control, and Consistency.
+
+5. **Developer Telemetry HUD**:
+   - Hidden by default, toggleable via `Ctrl+Shift+D`, `?debug=true`, or the navbar tool button.
+   - Real-time inspector displaying pose, confidence, joint angles, score states, coaching level, and adaptive plan parameters.
+
+---
+
 ## 🧪 Hackathon Judge Verification Runbook
 
-To test and verify the complete MVP end-to-end:
+To test and verify the complete companion end-to-end:
 
-1. **Launch App**: Open `http://localhost:3000` (or your static host).
+1. **Launch App**: Open `http://localhost:3000` (or run `node test_upgrade3.js` for unit verification).
 2. **Onboarding Screen**:
    - Enter your name (e.g. `Maya`), select your goal and experience level (`Beginner`).
    - Click **"Continue to Today's Session"**.
 3. **Session Screen**:
-   - Observe the dynamic `"Why This Session For You"` card explaining beginner alignment.
+   - Observe the dynamic `"Why This Session For You"` card explaining beginner alignment and adaptive rationale.
    - Click **"Start Camera & Practice"**.
 4. **Live Pose Tracking**:
    - Allow camera permissions.
@@ -125,20 +169,23 @@ To test and verify the complete MVP end-to-end:
    - Observe the live neon skeleton tracking your joints smoothly at ~30 FPS.
 5. **Warrior II Stance Detection**:
    - Step into Warrior II (bend front knee, extend arms horizontally).
-   - Observe the **Front Knee Angle** and **Shoulder Tilt** updating dynamically in the HUD and directly on the canvas near your front knee.
+   - Observe the **Front Knee Angle**, **Knee Stack %**, **Shoulder Tilt**, and **Score Breakdown** updating dynamically.
 6. **Alignment Feedback & Debounce**:
-   - Straighten your front knee slightly ($>110°$): Observe the debounced amber warning: *"Try keeping your front knee aligned with your ankle"*. Notice your baseline score is captured.
-   - Correct your knee bend back to ~90°: Observe the green confirmation: *"Good alignment! Keep holding steady"* and the dynamic badge: *"Movement quality improved by +X pts"*.
+   - Straighten front knee slightly ($>105°$) or drift knee outward ($>12\%$): Observe the debounced warning with coach intelligence level and phase.
+   - Correct posture back: Observe the green confirmation, voice coach confirmation, and measured delta badge: *"Movement quality improved by +X pts"*.
 7. **Session Summary**:
    - Click **"End Session & View Summary"** (or press `ESC`).
-   - Review your measured **Initial Score**, **Corrected Score**, and **Improvement Delta**.
+   - Review your **Before → After Coaching Story**, measured delta, coach attribution insight, and next-session reasoning.
 8. **Progress Analytics**:
    - Click **"View Progress History & Chart"**.
-   - Review the Chart.js line graph and plain-language insight derived from your actual stored sessions.
+   - Review your **Personal Practice Fingerprint**, the **"What This Means"** explanation card, and Chart.js multi-dimensional tracking.
+9. **Developer Telemetry**:
+   - Press `Ctrl+Shift+D` or click the navbar tool icon to open the **Real-Time Movement Engine Inspector**.
 
 ---
 
 ## 🔒 Privacy & Wellness Disclaimer
 
-- **Privacy**: Camera access is used solely for client-side live pose tracking. Video is not recorded, stored, or sent anywhere.
+- **Privacy**: Camera access is used solely for client-side live pose tracking. Video is not recorded, stored, or sent to external servers.
 - **Wellness Notice**: This application is a wellness and fitness companion, not a medical diagnostic or physical therapy tool.
+
